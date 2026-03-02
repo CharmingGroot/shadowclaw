@@ -3,12 +3,9 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export type ModelKind = "claude" | "gpt";
 
-export async function complete(
-  prompt: string,
-  model: ModelKind = "claude",
-  apiKey?: string
-): Promise<string> {
-  const key = apiKey ?? (model === "claude" ? ANTHROPIC_API_KEY : OPENAI_API_KEY);
+/** API Key는 환경변수(ANTHROPIC_API_KEY, OPENAI_API_KEY)에서만 읽음. 요청 바디로 받지 않음. */
+export async function complete(prompt: string, model: ModelKind = "claude"): Promise<string> {
+  const key = model === "claude" ? ANTHROPIC_API_KEY : OPENAI_API_KEY;
   if (!key) {
     return stubResponse(prompt);
   }
