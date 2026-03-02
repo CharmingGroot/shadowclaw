@@ -1,0 +1,20 @@
+# Dependencies & build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Test / temp artifacts (do not commit)
+a.txt
+exist.txt
+f1.txt
+sub/
