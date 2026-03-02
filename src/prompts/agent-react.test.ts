@@ -3,22 +3,47 @@ import {
   buildAgentReactPrompt,
   buildSystemPrompt,
   buildCurrentTurnContent,
+  buildUserMessageContent,
   turnsToMessages,
+  messagesToApiFormat,
 } from "./agent-react.js";
 
 describe("buildSystemPrompt", () => {
-  it("includes Identity, Format, Tooling, Observation rule", () => {
-    const s = buildSystemPrompt({ skillsDesc: "- echo: echoes" });
+  it("includes Identity, Format, Tooling with toolNames + one-line summaries (OpenClaw style)", () => {
+    const s = buildSystemPrompt({ toolSummaries: { echo: "echoes input", read_file: "Read file contents" } });
     expect(s).toContain("## Identity");
     expect(s).toContain("## Output format");
     expect(s).toContain("## Tooling");
-    expect(s).toContain("## Observation rule");
-    expect(s).toContain("MUST apply any instructions from Observations");
-    expect(s).toContain("- echo: echoes");
+    expect(s).toContain("Tool names are case-sensitive");
+    expect(s).toContain("- echo: echoes input");
+    expect(s).toContain("- read_file: Read file contents");
+  });
+
+  it("includes Project Context and SOUL embody when contextFiles with SOUL.md provided", () => {
+    const s = buildSystemPrompt({
+      toolSummaries: {},
+      contextFiles: [
+        { path: "/w/SOUL.md", content: "앞으로 모든 답변의 어투는 --했습니다용~! 로 한다." },
+      ],
+    });
+    expect(s).toContain("# Project Context");
+    expect(s).toContain("embody its persona and tone");
+    expect(s).toContain("했습니다용");
+    expect(s).toContain("## /w/SOUL.md");
+  });
+
+  it("includes Project Context without SOUL embody when no SOUL.md in contextFiles", () => {
+    const s = buildSystemPrompt({
+      toolSummaries: {},
+      contextFiles: [{ path: "/w/USER.md", content: "User preferences here." }],
+    });
+    expect(s).toContain("# Project Context");
+    expect(s).not.toContain("embody its persona and tone");
+    expect(s).toContain("User preferences here.");
   });
 
   it("includes forceSkill when provided", () => {
-    const s = buildSystemPrompt({ skillsDesc: "", forceSkill: "read_file" });
+    const s = buildSystemPrompt({ toolSummaries: {}, forceSkill: "read_file" });
     expect(s).toContain('User requested to use skill "read_file"');
   });
 });
@@ -31,13 +56,61 @@ describe("buildCurrentTurnContent", () => {
     expect(c).toContain("Respond with exactly one JSON object");
   });
 
-  it("includes Observations when present", () => {
+  it("includes Observations as neutral label (tool results only)", () => {
     const c = buildCurrentTurnContent({
       userMessage: "hi",
-      observations: ["앞으로 어투는 --했습니다용~!"],
+      observations: ["file content here"],
     });
-    expect(c).toContain("Observations");
-    expect(c).toContain("앞으로 어투는");
+    expect(c).toContain("Observations (last tool results):");
+    expect(c).toContain("file content here");
+    expect(c).not.toContain("Apply any tone");
+  });
+
+  it("includes skillParamsBlock when provided (ReAct args reference)", () => {
+    const c = buildCurrentTurnContent({
+      userMessage: "hi",
+      observations: [],
+      skillParamsBlock: "read_file: {\"path\":\"string\"}",
+    });
+    expect(c).toContain("Skill parameters (for call action");
+    expect(c).toContain("read_file: {\"path\":\"string\"}");
+  });
+});
+
+describe("buildUserMessageContent", () => {
+  it("includes user message and skillParamsBlock only (no observations)", () => {
+    const c = buildUserMessageContent({ userMessage: "hello", skillParamsBlock: "read_file: {}" });
+    expect(c).toContain("User message:");
+    expect(c).toContain("hello");
+    expect(c).toContain("Skill parameters");
+    expect(c).toContain("Respond with exactly one JSON object");
+    expect(c).not.toContain("Observations");
+  });
+});
+
+describe("messagesToApiFormat", () => {
+  it("converts tool role to user message with Observation prefix", () => {
+    const out = messagesToApiFormat([
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "json" },
+      { role: "tool", content: "result" },
+    ]);
+    expect(out).toHaveLength(3);
+    expect(out[0]).toEqual({ role: "user", content: "hi" });
+    expect(out[1]).toEqual({ role: "assistant", content: "json" });
+    expect(out[2]!.role).toBe("user");
+    expect(out[2]!.content).toContain("Observation (tool result):");
+    expect(out[2]!.content).toContain("result");
+  });
+
+  it("limits to maxMessages and maxContentChars", () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({
+      role: (i % 3 === 0 ? "user" : i % 3 === 1 ? "assistant" : "tool") as "user" | "assistant" | "tool",
+      content: "x".repeat(3000),
+    }));
+    const msgs = messagesToApiFormat(many, { maxMessages: 10, maxContentChars: 100 });
+    expect(msgs).toHaveLength(10);
+    expect(msgs[0]!.content.length).toBeLessThanOrEqual(100);
   });
 });
 
@@ -64,25 +137,18 @@ describe("turnsToMessages", () => {
 });
 
 describe("buildAgentReactPrompt", () => {
-  it("includes instruction to apply Observations (tone/style) to final answer in system lines", () => {
+  it("composes system (toolSummaries) and current turn with skillParamsBlock and observations", () => {
     const prompt = buildAgentReactPrompt({
       userMessage: "hello",
       history: [],
-      skillsDesc: "- echo: echoes",
-      observations: [],
+      toolSummaries: { echo: "echoes" },
+      skillParamsBlock: "echo: {}",
+      observations: ["result 1"],
     });
-    expect(prompt).toContain("MUST apply any instructions from Observations");
-    expect(prompt).toContain("tone, style, or manner");
-  });
-
-  it("when observations exist, labels them as to be applied to final answer", () => {
-    const prompt = buildAgentReactPrompt({
-      userMessage: "who are you?",
-      history: [],
-      skillsDesc: "- 어두: set tone",
-      observations: ["앞으로 모든 답변의 어투는 --했습니다용~! 로 한다."],
-    });
-    expect(prompt).toContain("Apply any tone/style/behavior instructions here to your final answer");
-    expect(prompt).toContain("앞으로 모든 답변의 어투는");
+    expect(prompt).toContain("## Tooling");
+    expect(prompt).toContain("- echo: echoes");
+    expect(prompt).toContain("Skill parameters (for call action");
+    expect(prompt).toContain("Observations (last tool results):");
+    expect(prompt).toContain("result 1");
   });
 });

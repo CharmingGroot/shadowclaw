@@ -12,12 +12,29 @@ describe("sessionStore", () => {
     expect(typeof id).toBe("string");
   });
 
-  it("append and getHistory", () => {
+  it("append and getHistory return Message[] (user/assistant/tool)", () => {
     const id = sessionStore.createSession("테스트");
-    sessionStore.append(id, { role: "user", content: "안녕", timestamp: new Date().toISOString() });
+    sessionStore.append(id, { role: "user", content: "안녕" });
     const history = sessionStore.getHistory(id);
     expect(history).toHaveLength(1);
+    expect(history[0].role).toBe("user");
     expect(history[0].content).toBe("안녕");
+  });
+
+  it("appendMessages stores assistant and tool messages in order", () => {
+    const id = sessionStore.createSession();
+    sessionStore.append(id, { role: "user", content: "run" });
+    sessionStore.appendMessages(id, [
+      { role: "assistant", content: "{}" },
+      { role: "tool", content: "ok" },
+      { role: "assistant", content: "done" },
+    ]);
+    const history = sessionStore.getHistory(id);
+    expect(history).toHaveLength(4);
+    expect(history[1].role).toBe("assistant");
+    expect(history[2].role).toBe("tool");
+    expect(history[2].content).toBe("ok");
+    expect(history[3].role).toBe("assistant");
   });
 
   it("listSessions includes created session", () => {

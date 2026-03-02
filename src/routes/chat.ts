@@ -21,19 +21,14 @@ router.post("/", async (req: Request, res: Response) => {
   if (sessionId && !sessionStore.getSessionMeta(sessionId)) sessionId = undefined;
   if (!sessionId) sessionId = sessionStore.createSession();
   const history = sessionStore.getHistory(sessionId);
-  sessionStore.append(sessionId, { role: "user", content, timestamp: new Date().toISOString() });
+  sessionStore.append(sessionId, { role: "user", content });
 
-  const { content: reply, tool_calls } = await runReact(content, history, {
+  const { content: reply, tool_calls, messages } = await runReact(content, history, {
     model: (model as ModelKind) ?? "claude",
     forceSkill: force_skill,
   });
 
-  sessionStore.append(sessionId, {
-    role: "assistant",
-    content: reply,
-    timestamp: new Date().toISOString(),
-    tool_calls,
-  });
+  sessionStore.appendMessages(sessionId, messages);
   res.json({ session_id: sessionId, content: reply, tool_calls });
 });
 

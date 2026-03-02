@@ -1,6 +1,14 @@
 /**
  * 공통 타입 — 세션·턴·스킬 메타
  */
+
+/** OpenClaw 스타일: 대화·도구 결과를 user/assistant/tool 메시지 열로 저장·전달 */
+export interface Message {
+  role: "user" | "assistant" | "tool";
+  content: string;
+  timestamp?: string;
+}
+
 export interface Turn {
   role: "user" | "assistant";
   content: string;

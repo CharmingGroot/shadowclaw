@@ -1,22 +1,20 @@
 /**
  * Agent loop (OpenClaw-style)
  *
- * Context: system prompt + messages[] (history as messages, current turn as last user message).
- * Single serialized run per invocation: intake → context assembly → model inference →
- * [tool execution → observation]×N → final reply.
+ * messages[] = user/assistant/tool. 도구 결과는 role "tool"로 쌓고, API 호출 시 user 메시지로 변환.
  */
-import type { Turn, ToolCallResult } from "./types.js";
+import type { Message, ToolCallResult } from "./types.js";
 import type { ModelKind } from "./llm/index.js";
 import * as skillTools from "./tools/skill-tools.js";
 import { registry } from "./skills/index.js";
 import { completeWithContext } from "./llm/index.js";
-import { loadTonePersonaMd } from "./tone-persona.js";
+import { resolveWorkspaceDir, loadContextFiles } from "./context-files.js";
 import {
   ACTION_CALL,
   ACTION_ANSWER,
   buildSystemPrompt,
-  buildCurrentTurnContent,
-  turnsToMessages,
+  buildUserMessageContent,
+  messagesToApiFormat,
 } from "./prompts/agent-react.js";
 
 const MAX_STEPS = 10;
@@ -77,65 +75,81 @@ export interface ReactOptions {
 
 export async function runReact(
   userMessage: string,
-  history: Turn[],
+  history: Message[],
   options: ReactOptions
-): Promise<{ content: string; tool_calls: ToolCallResult[] }> {
+): Promise<{ content: string; tool_calls: ToolCallResult[]; messages: Message[] }> {
   const { llm: legacyLlm, model = "claude", maxSteps = MAX_STEPS, forceSkill } = options;
 
   const skillsList = skillTools.listSkills();
-  const skillsDesc = skillsList
-    .map((s) => `- ${s.name}: ${s.description} | params: ${JSON.stringify(s.params_schema ?? {})}`)
+  const toolSummaries: Record<string, string> = Object.fromEntries(
+    skillsList.map((s) => [s.name, (s.description || s.name).trim().slice(0, 80)])
+  );
+  const skillParamsBlock = skillsList
+    .map((s) => `${s.name}: ${JSON.stringify(s.params_schema ?? {})}`)
     .join("\n");
 
-  const tonePersonaMd = await loadTonePersonaMd();
-  const systemPrompt = buildSystemPrompt({ skillsDesc, forceSkill, tonePersonaMd });
-  const historyMessages = turnsToMessages(history);
+  const workspaceDir = resolveWorkspaceDir();
+  const contextFiles = await loadContextFiles(workspaceDir);
+  const systemPrompt = buildSystemPrompt({ toolSummaries, forceSkill, contextFiles });
 
-  const observations: string[] = [];
+  const userContent = buildUserMessageContent({ userMessage, skillParamsBlock });
+  const messages: Message[] = [...history, { role: "user", content: userContent }];
+  const runMessages: Message[] = [];
+
   const toolCalls: ToolCallResult[] = [];
   const retryFailures = new Map<string, number>();
 
   for (let step = 0; step < maxSteps; step++) {
-    const currentContent = buildCurrentTurnContent({ userMessage, observations });
-    const messages = [...historyMessages, { role: "user" as const, content: currentContent }];
-
+    const apiMessages = messagesToApiFormat(messages);
     const response = legacyLlm
-      ? await legacyLlm(systemPrompt + "\n\n" + currentContent)
-      : await completeWithContext({ systemPrompt, messages }, model);
+      ? await legacyLlm(systemPrompt + "\n\n" + apiMessages[apiMessages.length - 1]!.content)
+      : await completeWithContext({ systemPrompt, messages: apiMessages }, model);
     const parsed = extractJson(response);
 
+    const assistantMsg: Message = { role: "assistant", content: response };
+    messages.push(assistantMsg);
+    runMessages.push(assistantMsg);
+
     if (!parsed) {
-      return { content: response.trim() || "응답을 생성하지 못했습니다.", tool_calls: toolCalls };
+      return {
+        content: response.trim() || "응답을 생성하지 못했습니다.",
+        tool_calls: toolCalls,
+        messages: runMessages,
+      };
     }
 
     const action = (parsed.action ?? parsed.Action) as string | undefined;
 
-    // Final answer → return (end of loop)
     if (action === ACTION_ANSWER) {
       const content = (parsed.content ?? parsed.Content ?? "") as string;
-      return { content: content.trim(), tool_calls: toolCalls };
+      return { content: content.trim(), tool_calls: toolCalls, messages: runMessages };
     }
 
-    // Tool call → execution → observation → next step
     if (action === ACTION_CALL) {
       const skillName = (parsed.skill ?? parsed.Skill ?? "") as string;
       const args = (parsed.args ?? parsed.Args ?? {}) as Record<string, unknown>;
       if (!skillName) {
-        observations.push("Error: skill name missing.");
+        const errObs = "Error: skill name missing.";
+        messages.push({ role: "tool", content: errObs });
+        runMessages.push({ role: "tool", content: errObs });
         continue;
       }
 
       const { observation, toolCall } = await executeTool(skillName, args, retryFailures);
-      observations.push(observation);
       toolCalls.push(toolCall);
+      messages.push({ role: "tool", content: observation });
+      runMessages.push({ role: "tool", content: observation });
       continue;
     }
 
-    observations.push(`Unknown action: ${action}. Use "${ACTION_CALL}" or "${ACTION_ANSWER}".`);
+    const errObs = `Unknown action: ${action}. Use "${ACTION_CALL}" or "${ACTION_ANSWER}".`;
+    messages.push({ role: "tool", content: errObs });
+    runMessages.push({ role: "tool", content: errObs });
   }
 
   return {
     content: "최대 단계에 도달했습니다. 지금까지 결과를 바탕으로 요약해 주세요.",
     tool_calls: toolCalls,
+    messages: runMessages,
   };
 }

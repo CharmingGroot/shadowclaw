@@ -6,6 +6,7 @@ export {
   createSession,
   getHistory,
   append,
+  appendMessages,
   listSessions,
   deleteSession,
   updateSessionTitle,
