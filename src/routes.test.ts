@@ -28,6 +28,14 @@ describe("routes", () => {
     expect(Array.isArray(res.body.skills)).toBe(true);
   });
 
+  it("GET /skills?exclude_builtin=1 excludes built-in skills from list", async () => {
+    const res = await request(app).get("/skills?exclude_builtin=1");
+    expect(res.status).toBe(200);
+    const names = (res.body.skills as { name: string }[]).map((s) => s.name);
+    expect(names).not.toContain("read_file");
+    expect(names).not.toContain("list_skills_meta");
+  });
+
   it("GET /skills/:name returns skill with content", async () => {
     const res = await request(app).get("/skills/list_skills_meta");
     expect(res.status).toBe(200);

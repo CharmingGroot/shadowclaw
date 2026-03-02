@@ -69,8 +69,12 @@ export async function updateSessionTitle(id: string, title: string): Promise<voi
   if (!res.ok) throw new Error(await res.text());
 }
 
-export async function getSkills(includeDisabled?: boolean): Promise<SkillMeta[]> {
-  const url = includeDisabled ? BASE + "/skills?include_disabled=1" : BASE + "/skills";
+export async function getSkills(opts?: { includeDisabled?: boolean; excludeBuiltin?: boolean }): Promise<SkillMeta[]> {
+  const params = new URLSearchParams();
+  if (opts?.includeDisabled) params.set("include_disabled", "1");
+  if (opts?.excludeBuiltin) params.set("exclude_builtin", "1");
+  const q = params.toString();
+  const url = q ? BASE + "/skills?" + q : BASE + "/skills";
   const res = await fetch(url);
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();

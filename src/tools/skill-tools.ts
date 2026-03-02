@@ -1,6 +1,19 @@
 import type { SkillMeta } from "../types.js";
 import * as registry from "../skills/registry.js";
 
+/** UI에 노출하지 않는 내장 스킬 이름 (도구·채팅 패널 목록에서 제외) */
+export const BUILTIN_SKILL_NAMES = new Set([
+  "read_file",
+  "write_file",
+  "list_dir",
+  "file_exists",
+  "run_shell_command",
+  "list_skills_meta",
+  "get_skill",
+  "update_skill_meta",
+  "create_custom_skill",
+]);
+
 const overrides = new Map<
   string,
   { description?: string; require_hitl?: boolean; enabled?: boolean; content?: string }
@@ -27,10 +40,15 @@ function applyOverride(meta: SkillMeta): SkillMeta & { require_hitl?: boolean; e
   };
 }
 
-export function listSkills(opts?: { includeDisabled?: boolean }): (SkillMeta & { require_hitl?: boolean; enabled?: boolean })[] {
-  const list = registry.listSkills().map(applyOverride);
-  if (opts?.includeDisabled) return list;
-  return list.filter((s) => (s as { enabled?: boolean }).enabled !== false);
+export function listSkills(opts?: {
+  includeDisabled?: boolean;
+  /** true면 내장 스킬 제외(UI용) */
+  excludeBuiltin?: boolean;
+}): (SkillMeta & { require_hitl?: boolean; enabled?: boolean })[] {
+  let list = registry.listSkills().map(applyOverride);
+  if (opts?.excludeBuiltin) list = list.filter((s) => !BUILTIN_SKILL_NAMES.has(s.name));
+  if (!opts?.includeDisabled) list = list.filter((s) => (s as { enabled?: boolean }).enabled !== false);
+  return list;
 }
 
 export function getSkill(args: { name: string }): {

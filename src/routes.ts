@@ -60,7 +60,11 @@ router.patch("/sessions/:id", (req: Request, res: Response) => {
 
 router.get("/skills", (req: Request, res: Response) => {
   const includeDisabled = req.query.include_disabled === "1";
-  res.json({ skills: skillTools.listSkills({ includeDisabled }), hitl_skills: [] });
+  const excludeBuiltin = req.query.exclude_builtin === "1";
+  res.json({
+    skills: skillTools.listSkills({ includeDisabled, excludeBuiltin }),
+    hitl_skills: [],
+  });
 });
 
 router.get("/skills/:name", (req: Request, res: Response) => {

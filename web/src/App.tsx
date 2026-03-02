@@ -260,7 +260,7 @@ function ChatView() {
 
   const loadSkills = async () => {
     try {
-      const list = await getSkills();
+      const list = await getSkills({ excludeBuiltin: true });
       setSkills(list);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -435,7 +435,7 @@ function ToolsView() {
   const loadSkills = useCallback(async () => {
     try {
       setSkillsError(null);
-      const list = await getSkills(true);
+      const list = await getSkills({ includeDisabled: true, excludeBuiltin: true });
       setSkills(list);
     } catch (e) {
       setSkillsError(e instanceof Error ? e.message : String(e));
