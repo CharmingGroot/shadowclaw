@@ -10,6 +10,7 @@ import type { ModelKind } from "./llm/index.js";
 import * as skillTools from "./tools/skill-tools.js";
 import { registry } from "./skills/index.js";
 import { completeWithContext } from "./llm/index.js";
+import { loadTonePersonaMd } from "./tone-persona.js";
 import {
   ACTION_CALL,
   ACTION_ANSWER,
@@ -86,7 +87,8 @@ export async function runReact(
     .map((s) => `- ${s.name}: ${s.description} | params: ${JSON.stringify(s.params_schema ?? {})}`)
     .join("\n");
 
-  const systemPrompt = buildSystemPrompt({ skillsDesc, forceSkill });
+  const tonePersonaMd = await loadTonePersonaMd();
+  const systemPrompt = buildSystemPrompt({ skillsDesc, forceSkill, tonePersonaMd });
   const historyMessages = turnsToMessages(history);
 
   const observations: string[] = [];
