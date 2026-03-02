@@ -6,6 +6,8 @@ const router = Router();
 
 const postSkillBody = z.object({
   name: z.string().min(1).max(120),
+  /** 마크다운 본문. 있으면 여기서 description·params_schema 파싱(단일 소스). */
+  content: z.string().optional(),
   description: z.string().optional(),
   params_schema: z.record(z.string()).optional(),
 });
@@ -29,11 +31,12 @@ router.get("/", (req: Request, res: Response) => {
 router.post("/", (req: Request, res: Response) => {
   const parsed = postSkillBody.safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
-  const { name, description, params_schema } = parsed.data;
+  const { name, content, description, params_schema } = parsed.data;
   const result = skillTools.createCustomSkill({
     name,
-    description: description ?? "",
-    params_schema: params_schema ?? {},
+    content,
+    description,
+    params_schema: params_schema ?? undefined,
   });
   if ("error" in result) return res.status(400).json({ error: result.error });
   res.status(201).json(result);

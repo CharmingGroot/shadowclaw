@@ -20,6 +20,45 @@ const overrides = new Map<
   { description?: string; require_hitl?: boolean; enabled?: boolean; content?: string }
 >();
 
+/** 마크다운 본문에서 설명·params_schema 추출. 스킬 = md 단일 소스일 때 사용. */
+export function parseSkillMarkdown(md: string): { description: string; params_schema: Record<string, string> } {
+  let description = "";
+  let params_schema: Record<string, string> = {};
+  const trimmed = md.trim();
+  if (!trimmed) return { description, params_schema };
+
+  // ## params_schema 또는 ### params_schema 다음의 ```json ... ``` 블록
+  const paramsSection = /^#{2,3}\s*params_schema\s*$/im;
+  const jsonBlock = /```(?:json)?\s*([\s\S]*?)```/;
+  const idx = trimmed.search(paramsSection);
+  if (idx !== -1) {
+    const after = trimmed.slice(idx);
+    const match = after.match(jsonBlock);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1].trim());
+        if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+          params_schema = parsed as Record<string, string>;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  // 설명: 첫 번째 # 제목 다음 문단(다음 ## 전까지)
+  const firstHeading = trimmed.match(/^#\s+.+$/m);
+  if (firstHeading) {
+    const start = trimmed.indexOf(firstHeading[0]) + firstHeading[0].length;
+    let end = trimmed.length;
+    const nextH2 = trimmed.slice(start).search(/\n\s*##\s+/);
+    if (nextH2 !== -1) end = start + nextH2;
+    const block = trimmed.slice(start, end).replace(/^[\s\n]+|[\s\n]+$/g, "");
+    description = block.split(/\n\n+/)[0]?.trim() ?? "";
+  }
+  return { description, params_schema };
+}
+
 function defaultMarkdown(meta: SkillMeta): string {
   const params = Object.keys(meta.params_schema ?? {}).length
     ? "\n\n## params_schema\n\n```json\n" + JSON.stringify(meta.params_schema, null, 2) + "\n```"
@@ -100,21 +139,37 @@ export function updateSkillMeta(args: {
 
 export function createCustomSkill(args: {
   name: string;
-  description: string;
-  params_schema: Record<string, string>;
+  /** 마크다운 본문. 있으면 여기서 description·params_schema 파싱 후 사용(단일 소스). */
+  content?: string;
+  /** content 없거나 에이전트 호출 시에만 사용. content 있으면 파싱값이 우선. */
+  description?: string;
+  params_schema?: Record<string, string>;
 }): { ok: boolean } | { error: string } {
   const name = String(args?.name ?? "").trim();
   if (!name) return { error: "name is required" };
   if (registry.get(name) != null) return { error: `Skill already exists: ${name}` };
-  const description = String(args?.description ?? "").trim();
+
+  const rawContent = args.content !== undefined ? String(args.content).trim() : "";
+  const parsed = rawContent ? parseSkillMarkdown(rawContent) : { description: "", params_schema: {} as Record<string, string> };
+  const description =
+    parsed.description || (args.description !== undefined ? String(args.description).trim() : "") || "Custom skill (no description).";
   const params_schema =
-    typeof args?.params_schema === "object" && args.params_schema != null ? (args.params_schema as Record<string, string>) : {};
+    Object.keys(parsed.params_schema).length > 0
+      ? parsed.params_schema
+      : typeof args?.params_schema === "object" && args.params_schema != null
+        ? (args.params_schema as Record<string, string>)
+        : {};
+
   registry.register(
     name,
-    description || "Custom skill (no description).",
+    description,
     params_schema,
     async () => ({ message: "Custom skill; no implementation bound." })
   );
+  if (rawContent) {
+    const current = overrides.get(name) ?? {};
+    overrides.set(name, { ...current, content: rawContent });
+  }
   return { ok: true };
 }
 

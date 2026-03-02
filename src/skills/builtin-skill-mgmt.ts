@@ -27,10 +27,12 @@ registry.register(
 
 registry.register(
   "create_custom_skill",
-  "Register a custom skill (meta only). Execution returns placeholder until bound.",
-  { name: "string", description: "string", params_schema: "object" },
+  "Register a custom skill. Optionally provide content (markdown body). Execution returns placeholder until bound.",
+  { name: "string", description: "string", params_schema: "object", content: "string" },
   async (args) =>
-    skillTools.createCustomSkill(args as { name: string; description: string; params_schema: Record<string, string> })
+    skillTools.createCustomSkill(
+      args as { name: string; description: string; params_schema: Record<string, string>; content?: string }
+    )
 );
 
 registry.register(

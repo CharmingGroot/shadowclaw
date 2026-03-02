@@ -89,8 +89,8 @@ export async function getSkill(name: string): Promise<SkillMeta & { content?: st
 
 export async function postSkill(meta: {
   name: string;
-  description?: string;
-  params_schema?: Record<string, string>;
+  /** 마크다운 본문. 있으면 여기서 설명·params_schema 파싱(단일 소스). */
+  content?: string;
 }): Promise<{ ok: boolean }> {
   const res = await fetch(BASE + "/skills", {
     method: "POST",
@@ -120,10 +120,17 @@ export async function patchSkill(
 }
 
 export async function getMcpServers(): Promise<McpServer[]> {
-  const res = await fetch(BASE + "/mcp/servers");
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  return data.servers ?? [];
+  try {
+    const res = await fetch(BASE + "/mcp/servers");
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    return data.servers ?? [];
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "Failed to fetch" || msg.includes("fetch"))
+      throw new Error("API 서버에 연결할 수 없습니다. 터미널에서 API를 실행 중인지 확인하세요 (기본 포트: 5052).");
+    throw e;
+  }
 }
 
 export async function addMcpServer(entry: {
@@ -132,13 +139,20 @@ export async function addMcpServer(entry: {
   transport?: "stdio" | "http";
   tools?: { name: string; description?: string }[];
 }): Promise<McpServer> {
-  const res = await fetch(BASE + "/mcp/servers", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(entry),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  try {
+    const res = await fetch(BASE + "/mcp/servers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "Failed to fetch" || msg.includes("fetch"))
+      throw new Error("API 서버에 연결할 수 없습니다. 터미널에서 API를 실행 중인지 확인하세요 (기본 포트: 5052).");
+    throw e;
+  }
 }
 
 export async function deleteMcpServer(id: string): Promise<void> {

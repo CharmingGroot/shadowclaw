@@ -55,6 +55,18 @@ describe("routes", () => {
     await request(app).delete("/skills/test_custom_skill");
   });
 
+  it("POST /skills with content stores markdown and parses description/params_schema", async () => {
+    const md = "# My Skill\n\nDo something useful.\n\n## params_schema\n\n```json\n{ \"q\": \"string\" }\n```";
+    const res = await request(app).post("/skills").send({ name: "skill_with_md", content: md });
+    expect(res.status).toBe(201);
+    const get = await request(app).get("/skills/skill_with_md");
+    expect(get.status).toBe(200);
+    expect(get.body.content).toBe(md);
+    expect(get.body.description).toBe("Do something useful.");
+    expect(get.body.params_schema).toEqual({ q: "string" });
+    await request(app).delete("/skills/skill_with_md");
+  });
+
   it("DELETE /skills/:name removes custom skill", async () => {
     await request(app).post("/skills").send({ name: "to_delete_skill", description: "Will delete" });
     const del = await request(app).delete("/skills/to_delete_skill");

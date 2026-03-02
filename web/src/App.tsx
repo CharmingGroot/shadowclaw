@@ -425,8 +425,7 @@ function ToolsView() {
   const [skillEditSaving, setSkillEditSaving] = useState(false);
   const [skillCreateOpen, setSkillCreateOpen] = useState(false);
   const [skillCreateName, setSkillCreateName] = useState("");
-  const [skillCreateDesc, setSkillCreateDesc] = useState("");
-  const [skillCreateSchema, setSkillCreateSchema] = useState("");
+  const [skillCreateContent, setSkillCreateContent] = useState("");
   const [skillCreateSaving, setSkillCreateSaving] = useState(false);
 
   const loadMcp = useCallback(async () => {
@@ -544,16 +543,15 @@ function ToolsView() {
   const handleOpenSkillCreate = () => {
     setSkillsError(null);
     setSkillCreateName("");
-    setSkillCreateDesc("");
-    setSkillCreateSchema("");
+    setSkillCreateContent("");
     setSkillCreateOpen(true);
   };
 
   const handleCloseSkillCreate = () => {
     setSkillCreateOpen(false);
     setSkillCreateName("");
-    setSkillCreateDesc("");
-    setSkillCreateSchema("");
+    setSkillCreateContent("");
+    setSkillsError(null);
   };
 
   const handleCreateSkill = async () => {
@@ -565,17 +563,8 @@ function ToolsView() {
     setSkillCreateSaving(true);
     setSkillsError(null);
     try {
-      let params_schema: Record<string, string> = {};
-      if (skillCreateSchema.trim()) {
-        try {
-          params_schema = JSON.parse(skillCreateSchema.trim()) as Record<string, string>;
-        } catch {
-          setSkillsError("params_schema는 유효한 JSON 객체여야 합니다.");
-          setSkillCreateSaving(false);
-          return;
-        }
-      }
-      await postSkill({ name, description: skillCreateDesc.trim() || undefined, params_schema });
+      const content = skillCreateContent.trim() || undefined;
+      await postSkill({ name, content });
       handleCloseSkillCreate();
       await loadSkills();
     } catch (e) {
@@ -814,25 +803,21 @@ function ToolsView() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted">설명 (선택)</label>
-                  <input
-                    type="text"
-                    value={skillCreateDesc}
-                    onChange={(e) => setSkillCreateDesc(e.target.value)}
-                    placeholder="스킬 설명"
-                    className="w-full rounded-input border border-border bg-bg px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted">params_schema (선택, JSON)</label>
+                  <label className="mb-1 block text-xs font-medium text-muted">마크다운 본문 (.md)</label>
                   <textarea
-                    value={skillCreateSchema}
-                    onChange={(e) => setSkillCreateSchema(e.target.value)}
-                    placeholder='{"key": "string"}'
-                    rows={3}
+                    value={skillCreateContent}
+                    onChange={(e) => setSkillCreateContent(e.target.value)}
+                    placeholder={`# 스킬 제목\n\n한 줄 설명을 여기에 적으면 에이전트에 노출됩니다.\n\n## params_schema\n\n파라미터가 필요하면 JSON 블록으로 정의:\n\`\`\`json\n{ "query": "string", "limit": "number" }\n\`\`\``}
+                    rows={10}
                     className="w-full rounded-input border border-border bg-bg px-3 py-2.5 font-mono text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                   />
+                  <p className="mt-1 text-xs text-muted">스킬은 마크다운(.md) 한 파일로만 관리됩니다. 설명과 params_schema는 본문에서 자동 파싱됩니다.</p>
                 </div>
+                {skillsError && (
+                  <div className="rounded-input border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                    {skillsError}
+                  </div>
+                )}
               </div>
               <div className="mt-6 flex justify-end gap-2">
                 <button
@@ -944,7 +929,8 @@ function SettingsView() {
         <div className="rounded-input border border-borderSoft bg-bg/80 px-4 py-3 text-sm text-muted">
           <strong className="text-textSecondary">API Key</strong>는 화면에서 입력하지 않습니다. 서버 실행 시 환경변수{" "}
           <code className="rounded bg-bg px-1 font-mono text-xs">ANTHROPIC_API_KEY</code>,{" "}
-          <code className="rounded bg-bg px-1 font-mono text-xs">OPENAI_API_KEY</code>로 설정하세요.
+          <code className="rounded bg-bg px-1 font-mono text-xs">OPENAI_API_KEY</code>로 설정하세요. 설정한 키가 있으면
+          선택한 모델과 다르더라도 해당 키로 자동 응답합니다.
         </div>
       </div>
     </div>
