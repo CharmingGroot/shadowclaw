@@ -1,6 +1,17 @@
+/**
+ * Agent loop (OpenClaw-style)
+ *
+ * Single serialized run per invocation: intake (userMessage) → context assembly →
+ * model inference → [tool execution → observation]×N → final reply.
+ * No streaming/lifecycle events; returns content + tool_calls on completion.
+ *
+ * Ref: OpenClaw docs/concepts/agent-loop.md
+ *   intake → context assembly → model inference → tool execution → streaming replies → persistence
+ */
 import type { Turn, ToolCallResult } from "./types.js";
 import * as skillTools from "./tools/skill-tools.js";
 import { registry } from "./skills/index.js";
+import { ACTION_CALL, ACTION_ANSWER, buildAgentReactPrompt } from "./prompts/agent-react.js";
 
 const MAX_STEPS = 10;
 
@@ -16,49 +27,37 @@ function extractJson(text: string): Record<string, unknown> | null {
   }
 }
 
-function buildPrompt(
-  userMessage: string,
-  history: Turn[],
-  skillsDesc: string,
-  observations: string[],
-  forceSkill?: string
-): string {
-  const lines = [
-    "You are a helpful assistant with access to skills (tools). Respond ONLY with a single JSON object.",
-    "",
-  ];
-  if (forceSkill) {
-    lines.push(`User requested to use skill "${forceSkill}". Prefer calling it with appropriate args.`, "");
+/** Tool execution: run skill, return observation string (sanitized for size; OpenClaw: tool results sanitized before logging). */
+async function executeTool(
+  skillName: string,
+  args: Record<string, unknown>,
+  retryFailures: Map<string, number>
+): Promise<{ observation: string; toolCall: ToolCallResult }> {
+  const argsKey = `${skillName}:${JSON.stringify(args)}`;
+  if ((retryFailures.get(argsKey) ?? 0) >= 3) {
+    return {
+      observation: `[Reflection] ${skillName} failed 3 times. Skipping.`,
+      toolCall: { skill: skillName, args, error: "Skipped after 3 failures." },
+    };
   }
-  lines.push(
-    "Format 1 - Call a skill:",
-    '{"thought": "reasoning", "action": "call", "skill": "<name>", "args": {...}}',
-    "Format 2 - Final answer:",
-    '{"thought": "reasoning", "action": "answer", "content": "<response in Korean or English>"}',
-    "",
-    "Available skills:",
-    skillsDesc,
-    "",
-    "User message:",
-    userMessage,
-    ""
-  );
-  if (history.length) {
-    lines.push("Recent conversation:");
-    history.slice(-6).forEach((t) => {
-      lines.push(`- ${t.role}: ${(t.content || "").slice(0, 300)}`);
-    });
-    lines.push("");
+
+  try {
+    const result = await registry.run(skillName, args);
+    retryFailures.set(argsKey, 0);
+    const obsStr = typeof result === "object" ? JSON.stringify(result) : String(result);
+    const sanitized = obsStr.length > 2000 ? obsStr.slice(0, 2000) + "...(truncated)" : obsStr;
+    return {
+      observation: sanitized,
+      toolCall: { skill: skillName, args, result_preview: obsStr.slice(0, 200) },
+    };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    retryFailures.set(argsKey, (retryFailures.get(argsKey) ?? 0) + 1);
+    return {
+      observation: `Error: ${errMsg}`,
+      toolCall: { skill: skillName, args, error: errMsg },
+    };
   }
-  if (observations.length) {
-    lines.push("Observations (last skill results):");
-    observations.slice(-3).forEach((o, i) => {
-      lines.push(`${i + 1}. ${String(o).slice(0, 1200)}`);
-    });
-    lines.push("");
-  }
-  lines.push("Respond with exactly one JSON object:");
-  return lines.join("\n");
 }
 
 export interface ReactOptions {
@@ -73,6 +72,8 @@ export async function runReact(
   options: ReactOptions
 ): Promise<{ content: string; tool_calls: ToolCallResult[] }> {
   const { llm, maxSteps = MAX_STEPS, forceSkill } = options;
+
+  // Skills snapshot (OpenClaw: skills loaded and injected into prompt)
   const skillsList = skillTools.listSkills();
   const skillsDesc = skillsList
     .map((s) => `- ${s.name}: ${s.description} | params: ${JSON.stringify(s.params_schema)}`)
@@ -83,7 +84,16 @@ export async function runReact(
   const retryFailures = new Map<string, number>();
 
   for (let step = 0; step < maxSteps; step++) {
-    const prompt = buildPrompt(userMessage, history, skillsDesc, observations, forceSkill);
+    // Context assembly (prompt from src/prompts/)
+    const prompt = buildAgentReactPrompt({
+      userMessage,
+      history,
+      skillsDesc,
+      observations,
+      forceSkill,
+    });
+
+    // Model inference
     const response = await llm(prompt);
     const parsed = extractJson(response);
 
@@ -92,12 +102,15 @@ export async function runReact(
     }
 
     const action = (parsed.action ?? parsed.Action) as string | undefined;
-    if (action === "answer") {
+
+    // Final answer → return (end of loop)
+    if (action === ACTION_ANSWER) {
       const content = (parsed.content ?? parsed.Content ?? "") as string;
       return { content: content.trim(), tool_calls: toolCalls };
     }
 
-    if (action === "call") {
+    // Tool call → execution → observation → next step
+    if (action === ACTION_CALL) {
       const skillName = (parsed.skill ?? parsed.Skill ?? "") as string;
       const args = (parsed.args ?? parsed.Args ?? {}) as Record<string, unknown>;
       if (!skillName) {
@@ -105,28 +118,13 @@ export async function runReact(
         continue;
       }
 
-      const argsKey = `${skillName}:${JSON.stringify(args)}`;
-      if ((retryFailures.get(argsKey) ?? 0) >= 3) {
-        observations.push(`[Reflection] ${skillName} failed 3 times. Skipping.`);
-        continue;
-      }
-
-      try {
-        const result = await registry.run(skillName, args);
-        retryFailures.set(argsKey, 0);
-        const obsStr = typeof result === "object" ? JSON.stringify(result) : String(result);
-        observations.push(obsStr.length > 2000 ? obsStr.slice(0, 2000) + "...(truncated)" : obsStr);
-        toolCalls.push({ skill: skillName, args, result_preview: obsStr.slice(0, 200) });
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
-        retryFailures.set(argsKey, (retryFailures.get(argsKey) ?? 0) + 1);
-        observations.push(`Error: ${errMsg}`);
-        toolCalls.push({ skill: skillName, args, error: errMsg });
-      }
+      const { observation, toolCall } = await executeTool(skillName, args, retryFailures);
+      observations.push(observation);
+      toolCalls.push(toolCall);
       continue;
     }
 
-    observations.push(`Unknown action: ${action}. Use "call" or "answer".`);
+    observations.push(`Unknown action: ${action}. Use "${ACTION_CALL}" or "${ACTION_ANSWER}".`);
   }
 
   return {
