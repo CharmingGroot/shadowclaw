@@ -6,8 +6,8 @@
 
 ## 기술 스택
 
-- **TypeScript** + **Node.js**
-- Express API, 세션·스킬 레지스트리 (in-memory)
+- **API**: TypeScript + Node.js, Express, 세션·스킬 레지스트리 (in-memory)
+- **UI**: Vite + React + TypeScript + Tailwind CSS
 
 ## 실행
 
@@ -18,9 +18,18 @@ npm start
 # 또는 개발 시: npm run dev
 ```
 
-기본 포트: **5052** (`PORT` 환경 변수로 변경 가능)
+**LLM API Key**: 화면에서 입력하지 않음. 서버 실행 전 환경변수로 설정.
 
-브라우저에서 **http://127.0.0.1:5052/** 로 접속하면 채팅 UI(세션 목록·대화·스킬 패널)를 사용할 수 있다.
+- **설정 파일**: 프로젝트 루트에 `.env` 파일 생성. (예시는 [.env.example](.env.example) 참고.)
+- Claude: `ANTHROPIC_API_KEY=sk-ant-...`
+- OpenAI: `OPENAI_API_KEY=sk-proj-...`
+
+`npm run dev` / `npm start` 시 `dotenv`가 `.env`를 자동 로드. 미설정 시 채팅은 스텁 응답만 반환.
+
+기본 포트: **5052** (API), **5173** (UI 개발 서버)
+
+- **프로덕션**: `npm run build` (API) 후 `npm run build:web` (UI 빌드 → `public/`) → `npm start` → http://127.0.0.1:5052/
+- **개발**: 터미널 1에서 `npm run dev` (API), 터미널 2에서 `npm run dev:web` (Vite) → http://127.0.0.1:5173/ (API는 프록시로 5052 연동)
 
 ## API (현재)
 
