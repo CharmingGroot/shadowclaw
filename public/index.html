@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShadowClaw</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #1a1a1f;
+      --border: #2a2a32;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .app { display: flex; flex-direction: column; height: 100vh; }
+    .nav { display: flex; gap: 0; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .nav a { padding: 12px 16px; color: var(--muted); text-decoration: none; }
+    .nav a:hover, .nav a.active { color: var(--text); }
+    .nav a.active { border-bottom: 2px solid var(--accent); }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .view.active { display: flex; }
+    .chat-layout { display: flex; flex: 1; min-width: 0; }
+    .session-list { width: 240px; min-width: 200px; border-right: 1px solid var(--border); overflow-y: auto; background: var(--surface); }
+    .session-list h3 { padding: 12px 16px; margin: 0; font-size: 0.875rem; color: var(--muted); }
+    .session-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-item:hover { background: rgba(255,255,255,0.05); }
+    .session-item.active { background: rgba(59,130,246,0.15); }
+    .session-item .title { font-size: 0.9375rem; }
+    .session-item .time { font-size: 0.75rem; color: var(--muted); }
+    .btn-new-session { margin: 8px 16px; padding: 8px 12px; width: calc(100% - 32px); background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+    .btn-new-session:hover { background: var(--accent-hover); }
+    .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .msg { max-width: 85%; align-self: flex-start; padding: 12px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+    .msg.assistant { align-self: flex-start; }
+    .msg.user { align-self: flex-end; background: rgba(59,130,246,0.2); }
+    .msg .role { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .msg .content { white-space: pre-wrap; word-break: break-word; }
+    .tools-panel { width: 260px; min-width: 220px; border-left: 1px solid var(--border); overflow-y: auto; background: var(--surface); padding: 12px; }
+    .tools-panel h3 { margin: 0 0 12px 0; font-size: 0.875rem; color: var(--muted); }
+    .skill-item { padding: 8px 10px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; border: 1px solid transparent; }
+    .skill-item:hover { background: rgba(255,255,255,0.06); border-color: var(--border); }
+    .skill-item.forced { background: rgba(59,130,246,0.2); border-color: var(--accent); }
+    .skill-item .name { font-weight: 600; }
+    .skill-item .desc { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .input-row { display: flex; gap: 8px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface); }
+    .input-row input { flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+    .input-row input:focus { outline: none; border-color: var(--accent); }
+    .input-row button { padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .input-row button:hover { background: var(--accent-hover); }
+    .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+    .tools-view, .settings-view { padding: 24px; overflow-y: auto; }
+    .tools-view h2, .settings-view h2 { margin: 0 0 16px 0; font-size: 1.25rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .loading { color: var(--muted); }
+    .error { color: #ef4444; font-size: 0.875rem; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <nav class="nav">
+      <a href="#chat" id="nav-chat" class="active">채팅</a>
+      <a href="#tools" id="nav-tools">도구</a>
+      <a href="#settings" id="nav-settings">설정</a>
+    </nav>
+    <main class="main">
+      <div id="view-chat" class="view active">
+        <div class="chat-layout">
+          <aside class="session-list">
+            <button type="button" class="btn-new-session">새 대화</button>
+            <h3>대화 목록</h3>
+            <div id="session-list"></div>
+            <div id="session-empty" class="empty">새 대화를 시작하세요.</div>
+          </aside>
+          <section style="flex:1;display:flex;flex-direction:column;min-width:0;">
+            <div id="messages" class="messages"></div>
+            <div class="input-row">
+              <input id="message-input" type="text" placeholder="메시지 입력..." autocomplete="off" />
+              <button type="button" id="send-btn">전송</button>
+            </div>
+          </section>
+          <aside class="tools-panel">
+            <h3>스킬 / 도구</h3>
+            <div id="skills-list"></div>
+          </aside>
+        </div>
+      </div>
+      <div id="view-tools" class="view">
+        <div class="tools-view">
+          <h2>도구</h2>
+          <div class="card">
+            <p>MCP 서버 등록·스킬 목록은 API로 제공됩니다. (UI 확장 예정)</p>
+            <p><a href="/skills" style="color:var(--accent);" target="_blank">GET /skills</a></p>
+          </div>
+        </div>
+      </div>
+      <div id="view-settings" class="view">
+        <div class="settings-view">
+          <h2>설정</h2>
+          <div class="card">
+            <p>API Key·모델 설정은 추후 연동됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    const API = '';
+    let currentSessionId = null;
+    let forceSkill = null;
+    let skills = [];
+
+    function showView(id) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + id).classList.add('active');
+      document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+      document.getElementById('nav-' + id).classList.add('active');
+    }
+
+    window.addEventListener('hashchange', () => {
+      const hash = (location.hash || '#chat').slice(1);
+      showView(hash === 'tools' ? 'tools' : hash === 'settings' ? 'settings' : 'chat');
+    });
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json', ...opts.headers }, ...opts });
+      if (!res.ok) throw new Error(res.status + ' ' + (await res.text()));
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    async function loadSessions() {
+      const data = await api('/sessions');
+      const listEl = document.getElementById('session-list');
+      const emptyEl = document.getElementById('session-empty');
+      listEl.innerHTML = '';
+      if (!data.sessions || data.sessions.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      data.sessions.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
+        div.dataset.id = s.id;
+        div.innerHTML = '<div class="title">' + escapeHtml(s.title || '새 대화') + '</div><div class="time">' + formatTime(s.updated_at) + '</div>';
+        div.onclick = () => selectSession(s.id);
+        listEl.appendChild(div);
+      });
+    }
+
+    async function loadSkills() {
+      const data = await api('/skills');
+      skills = data.skills || [];
+      const el = document.getElementById('skills-list');
+      el.innerHTML = '';
+      skills.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'skill-item' + (forceSkill === s.name ? ' forced' : '');
+        div.title = s.description + '\nparams: ' + JSON.stringify(s.params_schema || {});
+        div.innerHTML = '<div class="name">' + escapeHtml(s.name) + '</div><div class="desc">' + escapeHtml((s.description || '').slice(0, 50)) + '</div>';
+        div.onclick = () => { forceSkill = forceSkill === s.name ? null : s.name; loadSkills(); };
+        el.appendChild(div);
+      });
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+      const now = new Date();
+      const diff = (now - d) / 60000;
+      if (diff < 1) return '방금';
+      if (diff < 60) return Math.floor(diff) + '분 전';
+      if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    async function selectSession(id) {
+      currentSessionId = id;
+      await loadSessions();
+      const data = await api('/sessions/' + id);
+      const messagesEl = document.getElementById('messages');
+      messagesEl.innerHTML = '';
+      (data.messages || []).forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'msg ' + m.role;
+        div.innerHTML = '<div class="role">' + (m.role === 'user' ? '나' : 'ShadowClaw') + '</div><div class="content">' + escapeHtml(m.content || '') + '</div>';
+        messagesEl.appendChild(div);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    document.querySelector('.btn-new-session').onclick = async () => {
+      const data = await api('/sessions', { method: 'POST', body: JSON.stringify({}) });
+      currentSessionId = data.session_id;
+      await loadSessions();
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('message-input').focus();
+    };
+
+    document.getElementById('send-btn').onclick = sendMessage;
+    document.getElementById('message-input').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+
+    async function sendMessage() {
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+      if (!text) return;
+      if (!currentSessionId) {
+        const data = await api('/sessions', { method: 'POST', body: JSON.stringify({}) });
+        currentSessionId = data.session_id;
+        await loadSessions();
+      }
+      input.value = '';
+      const messagesEl = document.getElementById('messages');
+      const userDiv = document.createElement('div');
+      userDiv.className = 'msg user';
+      userDiv.innerHTML = '<div class="role">나</div><div class="content">' + escapeHtml(text) + '</div>';
+      messagesEl.appendChild(userDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      const btn = document.getElementById('send-btn');
+      btn.disabled = true;
+      btn.textContent = '...';
+      try {
+        const body = { content: text, session_id: currentSessionId };
+        if (forceSkill) body.force_skill = forceSkill;
+        const data = await api('/chat', { method: 'POST', body: JSON.stringify(body) });
+        const assDiv = document.createElement('div');
+        assDiv.className = 'msg assistant';
+        assDiv.innerHTML = '<div class="role">ShadowClaw</div><div class="content">' + escapeHtml(data.content || '') + '</div>';
+        messagesEl.appendChild(assDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        await loadSessions();
+      } catch (e) {
+        const errDiv = document.createElement('div');
+        errDiv.className = 'msg assistant error';
+        errDiv.innerHTML = '<div class="content">' + escapeHtml('오류: ' + e.message) + '</div>';
+        messagesEl.appendChild(errDiv);
+      }
+      btn.disabled = false;
+      btn.textContent = '전송';
+    }
+
+    (async function init() {
+      if ((location.hash || '#chat').slice(1) !== 'chat') showView((location.hash || '#chat').slice(1));
+      await loadSessions();
+      await loadSkills();
+    })();
+  </script>
+</body>
+</html>
