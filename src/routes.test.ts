@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
 import routes from "./routes.js";
@@ -20,6 +20,37 @@ describe("routes", () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.skills)).toBe(true);
     expect(res.body.skills.some((s: { name: string }) => s.name === "list_skills_meta")).toBe(true);
+  });
+
+  it("GET /skills?include_disabled=1 returns all skills", async () => {
+    const res = await request(app).get("/skills?include_disabled=1");
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.skills)).toBe(true);
+  });
+
+  it("GET /skills/:name returns skill with content", async () => {
+    const res = await request(app).get("/skills/list_skills_meta");
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe("list_skills_meta");
+    expect(typeof res.body.content).toBe("string");
+    expect(res.body.content.length).toBeGreaterThan(0);
+  });
+
+  it("PATCH /skills/:name updates meta", async () => {
+    const res = await request(app).patch("/skills/list_skills_meta").send({ enabled: false });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    const list = await request(app).get("/skills");
+    expect(list.body.skills.some((s: { name: string }) => s.name === "list_skills_meta")).toBe(false);
+    await request(app).patch("/skills/list_skills_meta").send({ enabled: true });
+  });
+
+  it("GET /sessions/:id/messages returns messages", async () => {
+    const create = await request(app).post("/sessions").send({ title: "Msg test" });
+    const sessionId = create.body.session_id;
+    const res = await request(app).get(`/sessions/${sessionId}/messages`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.messages)).toBe(true);
   });
 
   it("POST /sessions and GET /sessions/:id", async () => {
