@@ -1,4 +1,16 @@
+export type OpenAIMessage = { role: "user" | "assistant" | "system"; content: string };
+
 export async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
+  return callOpenAIWithContext({ systemPrompt: "", messages: [{ role: "user", content: prompt }] }, apiKey);
+}
+
+export async function callOpenAIWithContext(
+  params: { systemPrompt: string; messages: { role: "user" | "assistant"; content: string }[] },
+  apiKey: string
+): Promise<string> {
+  const { systemPrompt, messages } = params;
+  const apiMessages: OpenAIMessage[] =
+    systemPrompt.trim() ? [{ role: "system", content: systemPrompt }, ...messages] : [...messages];
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -7,7 +19,7 @@ export async function callOpenAI(prompt: string, apiKey: string): Promise<string
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+      messages: apiMessages,
       max_tokens: 2048,
     }),
   });

@@ -18,17 +18,18 @@
     "test:mcp-server": "tsx src/test-mcp-server.ts"
   },
   "dependencies": {
+    "better-sqlite3": "^12.6.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "uuid": "^11.0.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
+    "concurrently": "^9.1.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",

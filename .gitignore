@@ -13,6 +13,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Session DB (SQLite)
+data/
+
 # Test / temp artifacts (do not commit)
 a.txt
 exist.txt

@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import * as sessionStore from "../sessionStore.js";
-import { complete, type ModelKind } from "../llm/index.js";
+import type { ModelKind } from "../llm/index.js";
 import { runReact } from "../react.js";
 
 const router = Router();
@@ -23,8 +23,10 @@ router.post("/", async (req: Request, res: Response) => {
   const history = sessionStore.getHistory(sessionId);
   sessionStore.append(sessionId, { role: "user", content, timestamp: new Date().toISOString() });
 
-  const llm = (prompt: string) => complete(prompt, (model as ModelKind) ?? "claude");
-  const { content: reply, tool_calls } = await runReact(content, history, { llm, forceSkill: force_skill });
+  const { content: reply, tool_calls } = await runReact(content, history, {
+    model: (model as ModelKind) ?? "claude",
+    forceSkill: force_skill,
+  });
 
   sessionStore.append(sessionId, {
     role: "assistant",

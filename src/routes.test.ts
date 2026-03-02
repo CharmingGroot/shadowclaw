@@ -1,13 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import express from "express";
 import request from "supertest";
 import routes from "./routes.js";
+import * as sessionStore from "./sessionStore.js";
 
 const app = express();
 app.use(express.json());
 app.use(routes);
 
 describe("routes", () => {
+  beforeAll(() => {
+    sessionStore.initSessionDb(":memory:");
+  });
+
   it("GET /health", async () => {
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);

@@ -1,7 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import * as sessionStore from "./sessionStore.js";
 
 describe("sessionStore", () => {
+  beforeAll(() => {
+    sessionStore.initSessionDb(":memory:");
+  });
+
   it("createSession returns id", () => {
     const id = sessionStore.createSession();
     expect(id).toBeDefined();

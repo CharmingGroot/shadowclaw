@@ -1,17 +1,22 @@
 /**
  * Agent loop (OpenClaw-style)
  *
- * Single serialized run per invocation: intake (userMessage) → context assembly →
- * model inference → [tool execution → observation]×N → final reply.
- * No streaming/lifecycle events; returns content + tool_calls on completion.
- *
- * Ref: OpenClaw docs/concepts/agent-loop.md
- *   intake → context assembly → model inference → tool execution → streaming replies → persistence
+ * Context: system prompt + messages[] (history as messages, current turn as last user message).
+ * Single serialized run per invocation: intake → context assembly → model inference →
+ * [tool execution → observation]×N → final reply.
  */
 import type { Turn, ToolCallResult } from "./types.js";
+import type { ModelKind } from "./llm/index.js";
 import * as skillTools from "./tools/skill-tools.js";
 import { registry } from "./skills/index.js";
-import { ACTION_CALL, ACTION_ANSWER, buildAgentReactPrompt } from "./prompts/agent-react.js";
+import { completeWithContext } from "./llm/index.js";
+import {
+  ACTION_CALL,
+  ACTION_ANSWER,
+  buildSystemPrompt,
+  buildCurrentTurnContent,
+  turnsToMessages,
+} from "./prompts/agent-react.js";
 
 const MAX_STEPS = 10;
 
@@ -61,7 +66,10 @@ async function executeTool(
 }
 
 export interface ReactOptions {
-  llm: (prompt: string) => Promise<string>;
+  /** Legacy: single prompt (used if model not provided). */
+  llm?: (prompt: string) => Promise<string>;
+  /** OpenClaw-style: system + messages. */
+  model?: ModelKind;
   maxSteps?: number;
   forceSkill?: string;
 }
@@ -71,30 +79,27 @@ export async function runReact(
   history: Turn[],
   options: ReactOptions
 ): Promise<{ content: string; tool_calls: ToolCallResult[] }> {
-  const { llm, maxSteps = MAX_STEPS, forceSkill } = options;
+  const { llm: legacyLlm, model = "claude", maxSteps = MAX_STEPS, forceSkill } = options;
 
-  // Skills snapshot (OpenClaw: skills loaded and injected into prompt)
   const skillsList = skillTools.listSkills();
   const skillsDesc = skillsList
-    .map((s) => `- ${s.name}: ${s.description} | params: ${JSON.stringify(s.params_schema)}`)
+    .map((s) => `- ${s.name}: ${s.description} | params: ${JSON.stringify(s.params_schema ?? {})}`)
     .join("\n");
+
+  const systemPrompt = buildSystemPrompt({ skillsDesc, forceSkill });
+  const historyMessages = turnsToMessages(history);
 
   const observations: string[] = [];
   const toolCalls: ToolCallResult[] = [];
   const retryFailures = new Map<string, number>();
 
   for (let step = 0; step < maxSteps; step++) {
-    // Context assembly (prompt from src/prompts/)
-    const prompt = buildAgentReactPrompt({
-      userMessage,
-      history,
-      skillsDesc,
-      observations,
-      forceSkill,
-    });
+    const currentContent = buildCurrentTurnContent({ userMessage, observations });
+    const messages = [...historyMessages, { role: "user" as const, content: currentContent }];
 
-    // Model inference
-    const response = await llm(prompt);
+    const response = legacyLlm
+      ? await legacyLlm(systemPrompt + "\n\n" + currentContent)
+      : await completeWithContext({ systemPrompt, messages }, model);
     const parsed = extractJson(response);
 
     if (!parsed) {
