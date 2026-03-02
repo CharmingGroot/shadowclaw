@@ -87,6 +87,25 @@ export async function getSkill(name: string): Promise<SkillMeta & { content?: st
   return res.json();
 }
 
+export async function postSkill(meta: {
+  name: string;
+  description?: string;
+  params_schema?: Record<string, string>;
+}): Promise<{ ok: boolean }> {
+  const res = await fetch(BASE + "/skills", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(meta),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteSkill(name: string): Promise<void> {
+  const res = await fetch(BASE + "/skills/" + encodeURIComponent(name), { method: "DELETE" });
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function patchSkill(
   name: string,
   body: { description?: string; require_hitl?: boolean; enabled?: boolean; content?: string }

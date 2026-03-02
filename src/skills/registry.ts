@@ -16,6 +16,10 @@ export function register(
   registry.set(name, { meta: { name, description, params_schema }, fn });
 }
 
+export function unregister(name: string): boolean {
+  return registry.delete(name);
+}
+
 export function get(name: string): { meta: SkillMeta; fn: SkillFn } | undefined {
   return registry.get(name);
 }

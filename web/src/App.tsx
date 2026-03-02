@@ -13,6 +13,8 @@ import {
   getMcpServerTools,
   getSkill,
   patchSkill,
+  postSkill,
+  deleteSkill,
   loadSettings,
   saveSettings,
 } from "./api";
@@ -421,6 +423,11 @@ function ToolsView() {
   const [skillEditName, setSkillEditName] = useState("");
   const [skillEditContent, setSkillEditContent] = useState("");
   const [skillEditSaving, setSkillEditSaving] = useState(false);
+  const [skillCreateOpen, setSkillCreateOpen] = useState(false);
+  const [skillCreateName, setSkillCreateName] = useState("");
+  const [skillCreateDesc, setSkillCreateDesc] = useState("");
+  const [skillCreateSchema, setSkillCreateSchema] = useState("");
+  const [skillCreateSaving, setSkillCreateSaving] = useState(false);
 
   const loadMcp = useCallback(async () => {
     try {
@@ -532,6 +539,59 @@ function ToolsView() {
       setSkillsError(e instanceof Error ? e.message : String(e));
     }
     setSkillEditSaving(false);
+  };
+
+  const handleOpenSkillCreate = () => {
+    setSkillsError(null);
+    setSkillCreateName("");
+    setSkillCreateDesc("");
+    setSkillCreateSchema("");
+    setSkillCreateOpen(true);
+  };
+
+  const handleCloseSkillCreate = () => {
+    setSkillCreateOpen(false);
+    setSkillCreateName("");
+    setSkillCreateDesc("");
+    setSkillCreateSchema("");
+  };
+
+  const handleCreateSkill = async () => {
+    const name = skillCreateName.trim();
+    if (!name) {
+      setSkillsError("스킬 이름을 입력하세요.");
+      return;
+    }
+    setSkillCreateSaving(true);
+    setSkillsError(null);
+    try {
+      let params_schema: Record<string, string> = {};
+      if (skillCreateSchema.trim()) {
+        try {
+          params_schema = JSON.parse(skillCreateSchema.trim()) as Record<string, string>;
+        } catch {
+          setSkillsError("params_schema는 유효한 JSON 객체여야 합니다.");
+          setSkillCreateSaving(false);
+          return;
+        }
+      }
+      await postSkill({ name, description: skillCreateDesc.trim() || undefined, params_schema });
+      handleCloseSkillCreate();
+      await loadSkills();
+    } catch (e) {
+      setSkillsError(e instanceof Error ? e.message : String(e));
+    }
+    setSkillCreateSaving(false);
+  };
+
+  const handleDeleteSkill = async (name: string) => {
+    if (!window.confirm(`스킬 "${name}"을(를) 삭제할까요?`)) return;
+    try {
+      await deleteSkill(name);
+      await loadSkills();
+    } catch (e) {
+      setSkillsError(e instanceof Error ? e.message : String(e));
+    }
   };
 
   return (
@@ -717,8 +777,95 @@ function ToolsView() {
           </div>
         )}
 
+        {skillCreateOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={(e) => e.target === e.currentTarget && handleCloseSkillCreate()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skill-create-modal-title"
+          >
+            <div
+              className="w-full max-w-md rounded-panel border border-border bg-surface p-6 shadow-soft"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 id="skill-create-modal-title" className="text-lg font-semibold text-text">
+                  스킬 등록
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleCloseSkillCreate}
+                  className="rounded-input p-2 text-muted transition hover:bg-black/10 hover:text-text"
+                  aria-label="닫기"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted">이름 (필수)</label>
+                  <input
+                    type="text"
+                    value={skillCreateName}
+                    onChange={(e) => setSkillCreateName(e.target.value)}
+                    placeholder="예: my_custom_skill"
+                    className="w-full rounded-input border border-border bg-bg px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted">설명 (선택)</label>
+                  <input
+                    type="text"
+                    value={skillCreateDesc}
+                    onChange={(e) => setSkillCreateDesc(e.target.value)}
+                    placeholder="스킬 설명"
+                    className="w-full rounded-input border border-border bg-bg px-3 py-2.5 text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted">params_schema (선택, JSON)</label>
+                  <textarea
+                    value={skillCreateSchema}
+                    onChange={(e) => setSkillCreateSchema(e.target.value)}
+                    placeholder='{"key": "string"}'
+                    rows={3}
+                    className="w-full rounded-input border border-border bg-bg px-3 py-2.5 font-mono text-sm text-text placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseSkillCreate}
+                  className="rounded-input border border-border bg-bg px-4 py-2 text-sm font-medium text-text transition hover:bg-black/5"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateSkill}
+                  disabled={skillCreateSaving}
+                  className="rounded-input bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accentHover disabled:opacity-50"
+                >
+                  {skillCreateSaving ? "등록 중…" : "등록"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <section className="rounded-panel border border-borderSoft bg-surface p-6 shadow-soft">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">스킬 (활성/비활성)</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">스킬 (활성/비활성)</h3>
+            <button
+              type="button"
+              onClick={handleOpenSkillCreate}
+              className="rounded-input border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition hover:bg-black/5"
+            >
+              + 스킬 등록
+            </button>
+          </div>
           {skillsError && (
             <div className="mb-4 rounded-input border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
               {skillsError}
@@ -738,6 +885,13 @@ function ToolsView() {
                     className="rounded-input border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text transition hover:bg-black/5"
                   >
                     편집
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSkill(s.name)}
+                    className="rounded-input px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                  >
+                    삭제
                   </button>
                   <label className="flex items-center gap-2">
                     <span className="text-xs text-muted">활성</span>

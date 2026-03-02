@@ -12,6 +12,7 @@ export const BUILTIN_SKILL_NAMES = new Set([
   "get_skill",
   "update_skill_meta",
   "create_custom_skill",
+  "delete_custom_skill",
 ]);
 
 const overrides = new Map<
@@ -114,5 +115,15 @@ export function createCustomSkill(args: {
     params_schema,
     async () => ({ message: "Custom skill; no implementation bound." })
   );
+  return { ok: true };
+}
+
+export function deleteCustomSkill(args: { name: string }): { ok: boolean } | { error: string } {
+  const name = String(args?.name ?? "").trim();
+  if (!name) return { error: "name is required" };
+  if (BUILTIN_SKILL_NAMES.has(name)) return { error: `Cannot delete built-in skill: ${name}` };
+  if (registry.get(name) == null) return { error: `Skill not found: ${name}` };
+  overrides.delete(name);
+  registry.unregister(name);
   return { ok: true };
 }

@@ -67,6 +67,25 @@ router.get("/skills", (req: Request, res: Response) => {
   });
 });
 
+const postSkillBody = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().optional(),
+  params_schema: z.record(z.string()).optional(),
+});
+
+router.post("/skills", (req: Request, res: Response) => {
+  const parsed = postSkillBody.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body" });
+  const { name, description, params_schema } = parsed.data;
+  const result = skillTools.createCustomSkill({
+    name,
+    description: description ?? "",
+    params_schema: params_schema ?? {},
+  });
+  if ("error" in result) return res.status(400).json({ error: result.error });
+  res.status(201).json(result);
+});
+
 router.get("/skills/:name", (req: Request, res: Response) => {
   const { skill } = skillTools.getSkill({ name: req.params.name });
   if (!skill) return res.status(404).json({ error: "Skill not found" });
@@ -86,6 +105,15 @@ router.patch("/skills/:name", (req: Request, res: Response) => {
   const result = skillTools.updateSkillMeta({ name: req.params.name, ...parsed.data });
   if ("error" in result) return res.status(404).json({ error: result.error });
   res.json(result);
+});
+
+router.delete("/skills/:name", (req: Request, res: Response) => {
+  const result = skillTools.deleteCustomSkill({ name: req.params.name });
+  if ("error" in result) {
+    if (result.error.startsWith("Cannot delete built-in")) return res.status(403).json({ error: result.error });
+    return res.status(404).json({ error: result.error });
+  }
+  res.status(204).send();
 });
 
 const chatBody = z.object({

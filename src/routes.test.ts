@@ -44,6 +44,31 @@ describe("routes", () => {
     expect(res.body.content.length).toBeGreaterThan(0);
   });
 
+  it("POST /skills creates custom skill", async () => {
+    const res = await request(app)
+      .post("/skills")
+      .send({ name: "test_custom_skill", description: "Test desc", params_schema: { key: "string" } });
+    expect(res.status).toBe(201);
+    expect(res.body.ok).toBe(true);
+    const list = await request(app).get("/skills?exclude_builtin=1");
+    expect(list.body.skills.some((s: { name: string }) => s.name === "test_custom_skill")).toBe(true);
+    await request(app).delete("/skills/test_custom_skill");
+  });
+
+  it("DELETE /skills/:name removes custom skill", async () => {
+    await request(app).post("/skills").send({ name: "to_delete_skill", description: "Will delete" });
+    const del = await request(app).delete("/skills/to_delete_skill");
+    expect(del.status).toBe(204);
+    const list = await request(app).get("/skills?exclude_builtin=1");
+    expect(list.body.skills.some((s: { name: string }) => s.name === "to_delete_skill")).toBe(false);
+  });
+
+  it("DELETE /skills/:name rejects built-in skill with 403", async () => {
+    const res = await request(app).delete("/skills/read_file");
+    expect(res.status).toBe(403);
+    expect(res.body.error).toContain("built-in");
+  });
+
   it("PATCH /skills/:name updates meta", async () => {
     const res = await request(app).patch("/skills/list_skills_meta").send({ enabled: false });
     expect(res.status).toBe(200);

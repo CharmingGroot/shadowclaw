@@ -19,4 +19,11 @@ describe("SkillRegistry", () => {
   it("run unknown skill throws", async () => {
     await expect(registry.run("_nonexistent_skill_xyz", {})).rejects.toThrow("Unknown skill");
   });
+
+  it("unregister removes skill", () => {
+    registry.register("_test_unreg", "To remove", {}, () => null);
+    expect(registry.unregister("_test_unreg")).toBe(true);
+    expect(registry.get("_test_unreg")).toBeUndefined();
+    expect(registry.unregister("_test_unreg")).toBe(false);
+  });
 });

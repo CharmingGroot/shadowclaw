@@ -54,11 +54,11 @@ registry.register(
 
 registry.register(
   "update_skill_meta",
-  "Update skill meta override: description, require_hitl, enabled.",
-  { name: "string", description: "string", require_hitl: "boolean", enabled: "boolean" },
+  "Update skill meta override: description, require_hitl, enabled, content (markdown body).",
+  { name: "string", description: "string", require_hitl: "boolean", enabled: "boolean", content: "string" },
   async (args) =>
     skillTools.updateSkillMeta(
-      args as { name: string; description?: string; require_hitl?: boolean; enabled?: boolean }
+      args as { name: string; description?: string; require_hitl?: boolean; enabled?: boolean; content?: string }
     )
 );
 
@@ -68,6 +68,13 @@ registry.register(
   { name: "string", description: "string", params_schema: "object" },
   async (args) =>
     skillTools.createCustomSkill(args as { name: string; description: string; params_schema: Record<string, string> })
+);
+
+registry.register(
+  "delete_custom_skill",
+  "Delete a custom skill by name. Built-in skills cannot be deleted.",
+  { name: "string" },
+  async (args) => skillTools.deleteCustomSkill(args as { name: string })
 );
 
 export const HITL_SKILLS = new Set<string>();
