@@ -5,7 +5,7 @@
 import type { EmbeddedContextFile } from "../context-files.js";
 
 /**
- * 프로토콜 상수 — 아키텍처가 고정되어 있으므로 하드코딩. 변경 시 react.ts 파서 및
+ * 프로토콜 상수 — 아키텍처가 고정되어 있으므로 하드코딩. (ReAct 형식은 useNativeTools false 시에만 사용, 기본은 네이티브 tool calling.)
  * Silent/Heartbeat 처리 로직과 계약이 깨지므로 함께 수정해야 함.
  */
 export const ACTION_CALL = "call";
