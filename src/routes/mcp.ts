@@ -4,6 +4,20 @@ import * as mcpStore from "../mcpStore.js";
 
 const router = Router();
 
+/** HTTP MCP 서버에 JSON-RPC tools/list 요청 후 도구 목록 반환 */
+async function fetchToolsFromMcpServer(url: string): Promise<{ name: string; description?: string }[]> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "tools/list", id: 1 }),
+  });
+  if (!res.ok) throw new Error(`MCP server returned ${res.status}`);
+  const data = (await res.json()) as { result?: { tools?: Array<{ name: string; description?: string }> }; error?: unknown };
+  if (data.error) throw new Error(typeof data.error === "object" && data.error && "message" in data.error ? String((data.error as { message: string }).message) : "tools/list failed");
+  const tools = data.result?.tools ?? [];
+  return tools.map((t) => ({ name: t.name, description: t.description }));
+}
+
 const mcpServerBody = z.object({
   name: z.string().optional(),
   url: z.string().optional(),
@@ -29,9 +43,19 @@ router.get("/servers/:id", (req: Request, res: Response) => {
   res.json(server);
 });
 
-router.get("/servers/:id/tools", (req: Request, res: Response) => {
-  const tools = mcpStore.getServerTools(req.params.id);
-  res.json({ tools });
+router.get("/servers/:id/tools", async (req: Request, res: Response) => {
+  const server = mcpStore.getServer(req.params.id);
+  if (!server) return res.status(404).json({ error: "Server not found" });
+  const url = server.url?.trim();
+  if (url) {
+    try {
+      const tools = await fetchToolsFromMcpServer(url);
+      return res.json({ tools });
+    } catch (e) {
+      return res.json({ tools: server.tools ?? [], error: e instanceof Error ? e.message : "Failed to fetch tools" });
+    }
+  }
+  res.json({ tools: mcpStore.getServerTools(req.params.id) });
 });
 
 router.delete("/servers/:id", (req: Request, res: Response) => {
