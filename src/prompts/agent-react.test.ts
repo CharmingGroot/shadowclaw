@@ -67,6 +67,15 @@ describe("buildSystemPrompt", () => {
     expect(s).toContain("memory tools");
   });
 
+  it("omits ReAct JSON format when useNativeTools true (Pi/native tool calling)", () => {
+    const s = buildSystemPrompt({ toolSummaries: { x: "y" }, useNativeTools: true });
+    expect(s).not.toContain("Respond ONLY with a single JSON object");
+    expect(s).not.toContain("## Output format");
+    expect(s).not.toContain('"action":');
+    expect(s).toContain("## Tooling");
+    expect(s).toContain("- x: y");
+  });
+
   it("includes Project Context and SOUL embody when contextFiles with SOUL.md provided", () => {
     const s = buildSystemPrompt({
       toolSummaries: {},

@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import * as sessionStore from "../sessionStore.js";
 import type { ModelKind } from "../llm/index.js";
-import { runReact } from "../react.js";
+import { runPiStyle } from "../agent-pi.js";
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.post("/", async (req: Request, res: Response) => {
   const history = sessionStore.getHistory(sessionId);
   sessionStore.append(sessionId, { role: "user", content });
 
-  const { content: reply, tool_calls, messages } = await runReact(content, history, {
+  const { content: reply, tool_calls, messages } = await runPiStyle(content, history, {
     model: (model as ModelKind) ?? "claude",
     forceSkill: force_skill,
   });

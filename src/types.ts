@@ -7,6 +7,10 @@ export interface Message {
   role: "user" | "assistant" | "tool";
   content: string;
   timestamp?: string;
+  /** role이 tool일 때 API에 필요한 도구 호출 id (네이티브 tool calling) */
+  tool_call_id?: string;
+  /** role이 assistant일 때 호출한 도구 목록 (네이티브 tool calling, JSON 문자열 또는 직렬화용) */
+  tool_calls_json?: string;
 }
 
 export interface Turn {

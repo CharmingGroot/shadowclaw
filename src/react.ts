@@ -1,6 +1,7 @@
 /**
- * Agent loop (OpenClaw-style)
+ * Agent loop (OpenClaw-style) — DEPRECATED: 채팅은 agent-pi(runPiStyle) 사용.
  *
+ * ReAct(JSON 파싱) 방식. Pi 도입 후 기본 경로는 네이티브 tool calling(agent-pi)으로 전환됨.
  * messages[] = user/assistant/tool. 도구 결과는 role "tool"로 쌓고, API 호출 시 user 메시지로 변환.
  */
 import type { Message, ToolCallResult } from "./types.js";

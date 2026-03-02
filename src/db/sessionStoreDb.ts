@@ -69,24 +69,29 @@ export function createSession(title?: string, dbPath?: string): string {
 export function getHistory(sessionId: string, dbPath?: string): Message[] {
   const database = getDb(dbPath);
   const rows = database
-    .prepare("SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY id")
-    .all(sessionId) as { role: string; content: string; timestamp: string | null }[];
-  const messages: Message[] = rows.map((r) => ({
-    role: r.role as Message["role"],
-    content: r.content,
-    timestamp: r.timestamp ?? undefined,
-  }));
+    .prepare("SELECT role, content, timestamp, tool_calls_json FROM messages WHERE session_id = ? ORDER BY id")
+    .all(sessionId) as { role: string; content: string; timestamp: string | null; tool_calls_json: string | null }[];
+  const messages: Message[] = rows.map((r) => {
+    const out: Message = { role: r.role as Message["role"], content: r.content, timestamp: r.timestamp ?? undefined };
+    if (r.tool_calls_json != null && r.tool_calls_json !== "") {
+      if (r.role === "tool") out.tool_call_id = r.tool_calls_json;
+      else if (r.role === "assistant") out.tool_calls_json = r.tool_calls_json;
+    }
+    return out;
+  });
   return messages.slice(-MAX_TURNS);
 }
 
 function insertMessage(database: Database.Database, sessionId: string, message: Message): void {
   const ts = message.timestamp ?? new Date().toISOString();
+  const toolCallsJson =
+    message.role === "tool" ? (message.tool_call_id ?? null) : message.tool_calls_json ?? null;
   database
     .prepare("UPDATE sessions SET updated_at = ? WHERE id = ?")
     .run(now(), sessionId);
   database
     .prepare("INSERT INTO messages (session_id, role, content, timestamp, tool_calls_json, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(sessionId, message.role, message.content, ts, null, now());
+    .run(sessionId, message.role, message.content, ts, toolCallsJson, now());
   if (message.role === "user") {
     const meta = database.prepare("SELECT title FROM sessions WHERE id = ?").get(sessionId) as { title: string | null } | undefined;
     if (meta && !meta.title) {

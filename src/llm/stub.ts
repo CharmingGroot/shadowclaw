@@ -25,3 +25,14 @@ export function stubResponseWithContext(messages: { role: string; content: strin
       : "API Key를 설정하면 ReAct·LLM이 동작합니다.",
   });
 }
+
+/** completeWithTools용 스텁: tool_calls 없이 텍스트만 반환. */
+export function stubResponseWithTools(messages: { role: string; content: string }[]): { content: string; tool_calls?: never } {
+  const text = stubResponseWithContext(messages);
+  try {
+    const o = JSON.parse(text) as { content?: string };
+    return { content: o.content ?? text };
+  } catch {
+    return { content: text };
+  }
+}

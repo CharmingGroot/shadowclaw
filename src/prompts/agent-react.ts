@@ -55,6 +55,8 @@ export function buildSystemPrompt(params: {
   runtimeInfo?: { model?: string; host?: string };
   /** Memory 도구가 있으면 Memory 규칙 포함. */
   hasMemoryTools?: boolean;
+  /** true면 네이티브 tool calling 사용 — JSON 출력/ReAct 형식 문구 생략. */
+  useNativeTools?: boolean;
 }): string {
   const {
     toolSummaries,
@@ -66,6 +68,7 @@ export function buildSystemPrompt(params: {
     promptMode = "full",
     runtimeInfo,
     hasMemoryTools = false,
+    useNativeTools = false,
   } = params;
 
   if (promptMode === "none") {
@@ -74,8 +77,7 @@ export function buildSystemPrompt(params: {
 
   const lines: string[] = [
     "You are a helpful assistant running inside ShadowClaw.",
-    "Respond ONLY with a single JSON object when using tools or answering.",
-    "",
+    ...(useNativeTools ? [] : ["Respond ONLY with a single JSON object when using tools or answering.", ""]),
     "## Identity",
     "You have access to skills (tools). Use them when appropriate; otherwise answer directly.",
     "",
@@ -102,13 +104,17 @@ export function buildSystemPrompt(params: {
     }
   }
 
+  if (!useNativeTools) {
+    lines.push(
+      "## Output format",
+      "Format 1 - Call a skill (Thought → Action):",
+      formatCallExample(ACTION_CALL),
+      "Format 2 - Final answer (Thought → Answer):",
+      formatAnswerExample(ACTION_ANSWER),
+      ""
+    );
+  }
   lines.push(
-    "## Output format",
-    "Format 1 - Call a skill (Thought → Action):",
-    formatCallExample(ACTION_CALL),
-    "Format 2 - Final answer (Thought → Answer):",
-    formatAnswerExample(ACTION_ANSWER),
-    "",
     "## Tooling",
     "Tool names are case-sensitive. Call tools exactly as listed:",
     ...Object.entries(toolSummaries).map(([name, summary]) => `- ${name}: ${summary}`),
