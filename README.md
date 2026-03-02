@@ -11,12 +11,24 @@
 
 ## 실행
 
+**필수: 프로젝트 루트에서 실행.**
+
 ```bash
-npm install
-npm run build
-npm start
-# 또는 개발 시: npm run dev
+# 처음 한 번: 의존성 설치 (루트 + 웹)
+npm run install:all
+
+# 프로덕션: 빌드 후 서버 한 번에 실행
+npm run run
 ```
+
+브라우저에서 **http://127.0.0.1:5052/** 로 접속.
+
+| 스크립트 | 설명 |
+|----------|------|
+| `npm run install:all` | 루트 + web 의존성 한 번에 설치 |
+| `npm run build:all` | API + 웹 빌드 |
+| `npm run run` | 빌드 후 서버 시작 (프로덕션 한 번에) |
+| `npm run dev:all` | API(5052) + Vite(5173) 동시 실행 → http://127.0.0.1:5173/ |
 
 **LLM API Key**: 화면에서 입력하지 않음. 서버 실행 전 환경변수로 설정.
 
@@ -26,10 +38,16 @@ npm start
 
 `npm run dev` / `npm start` 시 `dotenv`가 `.env`를 자동 로드. 미설정 시 채팅은 스텁 응답만 반환.
 
-기본 포트: **5052** (API), **5173** (UI 개발 서버)
+### 포트
 
-- **프로덕션**: `npm run build` (API) 후 `npm run build:web` (UI 빌드 → `public/`) → `npm start` → http://127.0.0.1:5052/
-- **개발**: 터미널 1에서 `npm run dev` (API), 터미널 2에서 `npm run dev:web` (Vite) → http://127.0.0.1:5173/ (API는 프록시로 5052 연동)
+- **5052**: API + 프로덕션 UI (정적 파일)
+- **5173**: 개발용 Vite(UI만), API는 5052로 프록시
+
+### 개발 모드 (UI 핫리로드)
+
+**한 번에:** `npm run dev:all` → API(5052)와 Vite(5173)가 동시에 실행됨. 브라우저에서 **http://127.0.0.1:5173/** 접속.
+
+터미널을 나누고 싶으면: 터미널 1 `npm run dev`, 터미널 2 `npm run dev:web`.
 
 ## API (현재)
 
@@ -43,6 +61,18 @@ npm start
 | DELETE | /sessions/:id | 세션 삭제 |
 | GET | /skills | 스킬 목록 |
 | POST | /chat | 메시지 전송 (body: `{ content, session_id? }`) — 현재 스텁 응답 |
+
+## 테스트용 MCP 서버
+
+MCP 등록·ReAct 에이전트 테스트용 더미 서버. JSON-RPC 2.0 (tools/list, tools/call) over HTTP.
+
+```bash
+npm run test:mcp-server
+# 기본 http://127.0.0.1:9999  (포트: PORT 환경변수 또는 인자로 지정)
+```
+
+제공 도구: `echo`, `add`, `multiply`, `get_time`, `reverse_string`, `uppercase` (여러 개 섞어서 ReAct 테스트에 사용 가능).  
+소스: [src/test-mcp-server.ts](src/test-mcp-server.ts), 테스트: [src/test-mcp-server.test.ts](src/test-mcp-server.test.ts).
 
 ## 다음 단계 (기획 기준)
 

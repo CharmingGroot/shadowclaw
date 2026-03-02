@@ -6,11 +6,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "build:web": "cd web && npm run build",
+    "build:web": "npm run build --prefix web",
+    "build:all": "npm run build && npm run build:web",
     "dev": "tsx watch src/index.ts",
-    "dev:web": "cd web && npm run dev",
+    "dev:web": "npm run dev --prefix web",
+    "dev:all": "concurrently -n api,web -c cyan,yellow \"npm run dev\" \"npm run dev:web\"",
+    "install:all": "npm install && npm install --prefix web",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "run": "npm run build:all && npm start",
+    "test": "vitest run",
+    "test:mcp-server": "tsx src/test-mcp-server.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -19,6 +24,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "concurrently": "^9.1.0",
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
     "@types/supertest": "^6.0.2",
