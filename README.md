@@ -1,7 +1,8 @@
 # ShadowClaw
 
-채팅 중심 개인 AI 어시스턴트. ReAct·도구(Skill/MCP) 호출로 사용자 명령을 처리한다.
+채팅 중심 개인 AI 어시스턴트. **네이티브 tool calling**(Pi 스타일)과 스킬(Skill)·MCP로 사용자 명령을 처리한다.
 
+- **사용 가능한 작업**: [docs/usage.md](docs/usage.md)
 - 기획: [docs/PRD.md](docs/PRD.md), [docs/PROJECT-OVERVIEW.md](docs/PROJECT-OVERVIEW.md)
 
 ## 기술 스택
@@ -60,7 +61,7 @@ npm run run
 | PATCH | /sessions/:id | 제목 수정 (body: `{ title }`) |
 | DELETE | /sessions/:id | 세션 삭제 |
 | GET | /skills | 스킬 목록 |
-| POST | /chat | 메시지 전송 (body: `{ content, session_id? }`) — 현재 스텁 응답 |
+| POST | /chat | 메시지 전송 (body: `{ content, session_id?, model?, force_skill? }`) — LLM + 스킬 호출 (API Key 없으면 스텁) |
 
 ## 테스트용 MCP 서버
 
@@ -76,6 +77,5 @@ npm run test:mcp-server
 
 ## 다음 단계 (기획 기준)
 
-- ReAct 루프 + LLM 연동
-- 내장 도구(filesystem, linux, skill-tools) + Skill 래핑
-- 외부 MCP 서버 등록·연결·도구 호출
+- 외부 MCP 서버 도구를 채팅 에이전트에 연동 (현재는 내장·사용자 스킬만 네이티브 tool로 사용)
+- 스트리밍 응답·이벤트 (선택)

@@ -150,6 +150,7 @@ ReAct(JSON 파싱) 방식을 제거하고, pi-ai + pi-coding-agent 기반 네이
 
 ## 9. 구현 완료 사항 (1차)
 
+- **경로 A(createAgentSession + SessionManager)**: 보류. pi-coding-agent 의존·authStorage/modelRegistry 등 스텁 구현 부담이 커서, 현재는 경로 B(자체 러너)만 유지.
 - 패키지: `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai` 추가.
 - `src/llm/skill-to-tool-schema.ts`: 스킬 메타 → OpenAI/Claude tools 배열 변환.
 - `src/llm/claude.ts`, `openai.ts`: `callClaudeWithTools`, `callOpenAIWithTools` 추가 (tools + tool_calls 처리).
