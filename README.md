@@ -3,7 +3,7 @@
 채팅 중심 개인 AI 어시스턴트. **네이티브 tool calling**(Pi 스타일)과 스킬(Skill)·MCP로 사용자 명령을 처리한다.
 
 - **사용 가능한 작업**: [docs/usage.md](docs/usage.md)
-- 기획: [docs/PRD.md](docs/PRD.md), [docs/PROJECT-OVERVIEW.md](docs/PROJECT-OVERVIEW.md)
+- 아키텍처·기획: [docs/architecture/](docs/architecture/) (PRD, PROJECT-OVERVIEW, OpenClaw 비교, Pi 도입, 모듈화)
 
 ## 기술 스택
 

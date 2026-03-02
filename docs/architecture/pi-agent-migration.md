@@ -159,4 +159,10 @@ ReAct(JSON 파싱) 방식을 제거하고, pi-ai + pi-coding-agent 기반 네이
 - `src/routes/chat.ts`: `runReact` → `runPiStyle` 전환.
 - `src/prompts/agent-react.ts`: `useNativeTools` 옵션 추가 시 ReAct JSON 형식 문구 생략.
 - `src/types.ts`, `src/db/sessionStoreDb.ts`: `tool_call_id`, `tool_calls_json` 지원 (assistant/tool 메시지).
-- `src/react.ts`: DEPRECATED 주석 추가.
+- `src/react.ts` 제거 (채팅은 runPiStyle만 사용).
+
+---
+
+## 10. 남은 작업 (TODO)
+
+→ [docs/TODO.md](../TODO.md) 참고.

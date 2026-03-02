@@ -1,7 +1,7 @@
 # ShadowClaw — 프로젝트 역할 요약
 
 지금까지 작성된 기획을 바탕으로, **이 프로젝트가 수행할 역할**을 한 문서로 정리한 것이다.  
-상세 요건은 [PRD.md](PRD.md), [menu/README.md](menu/README.md), [builtin-tools-and-skills.md](builtin-tools-and-skills.md) 참고.
+상세 요건은 [PRD.md](PRD.md), [menu/README.md](../menu/README.md), [builtin-tools-and-skills.md](../menu/tools/builtin-tools-and-skills.md) 참고.
 
 ---
 

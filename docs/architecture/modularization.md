@@ -1,4 +1,4 @@
-﻿# 모듈화 점검 및 적용 계획
+# 모듈화 점검 및 적용 계획
 
 유지보수를 위한 모듈 경계·단일 책임·의존성 방향 점검 결과와, 미흡 시 적용할 계획이다.
 
@@ -118,5 +118,5 @@ tools/skill-tools.ts → types, skills/registry
 ## 4. OpenClaw 방식 네이티브 Tool Calling 도입
 
 - **검토 결과**: **모듈화 가능**. 기존 ReAct·LLM·스킬 레이어를 유지한 채, 도구 스키마 변환·`completeWithTools`·`runNativeToolLoop`를 새 모듈로 추가하는 방식으로 도입 가능.
-- **상세 기획·단계**: [plan-native-tool-calling.md](plan-native-tool-calling.md) 참고.
+- **상세 기획·단계**: [pi-agent-migration.md](pi-agent-migration.md) 참고.
 

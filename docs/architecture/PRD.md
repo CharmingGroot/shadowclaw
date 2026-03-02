@@ -20,7 +20,7 @@ OpenClaw 설계를 참고하여, **채팅 중심**의 개인 AI 어시스턴트 
 |------|------|
 | **언어** | **TypeScript** (정적 타입, 유지보수성). |
 | **런타임·서버** | **Node.js** (에이전트 API, ReAct, MCP 클라이언트, 세션·도구 관리). |
-| **외부 MCP** | **외부 MCP 서버 연결** 지원. 사용자가 도구 화면에서 MCP 서버(URL 또는 stdio)를 등록·연결·해제하고, 등록된 서버의 도구를 채팅 시 에이전트가 호출할 수 있도록 기획. → [menu/tools/02-mcp.md](menu/tools/02-mcp.md), [menu/tools/04-api.md](menu/tools/04-api.md) |
+| **외부 MCP** | **외부 MCP 서버 연결** 지원. 사용자가 도구 화면에서 MCP 서버(URL 또는 stdio)를 등록·연결·해제하고, 등록된 서버의 도구를 채팅 시 에이전트가 호출할 수 있도록 기획. → [menu/tools/02-mcp.md](../menu/tools/02-mcp.md), [menu/tools/04-api.md](../menu/tools/04-api.md) |
 
 ---
 
@@ -57,7 +57,7 @@ ShadowClaw가 따를 OpenClaw의 핵심 설계는 다음과 같다.
   - (확장) 웹 검색 결과, 외부 스토리지(Drive 등) 연동은 별도 기획.
 - **UI 요건**: 채팅 좌측 또는 별도 "소스" 영역에서 "소스 추가" 버튼, 소스 목록(이름·유형·삭제), 선택된 소스를 현재 세션/채팅에 연결.
 - **연동**: 세션 또는 글로벌 단위로 "이 대화에 사용할 소스" 지정. ReAct/LLM 호출 시 지정된 소스 내용을 컨텍스트로 포함.
-- 상세: [menu/sources/01-overview.md](menu/sources/01-overview.md), [menu/sources/02-api.md](menu/sources/02-api.md).
+- 상세: [menu/sources/01-overview.md](../menu/sources/01-overview.md), [menu/sources/02-api.md](../menu/sources/02-api.md).
 
 ### 4.2 MCP와 Skill 연동·조작·관리
 
@@ -111,7 +111,7 @@ ShadowClaw가 따를 OpenClaw의 핵심 설계는 다음과 같다.
 
 ## 7. 문서 구조
 
-- **본 문서**: `docs/PRD.md` — 제품 요구사항 총괄.
+- **본 문서**: `docs/architecture/PRD.md` — 제품 요구사항 총괄.
 - **메뉴·화면 명세**: `docs/menu/` — 화면별 폴더, 기능별 명세 파일.
   - `menu/README.md` — 메뉴 인덱스.
   - `menu/chat/` — 채팅(메인) 화면 명세.

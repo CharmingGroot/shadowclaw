@@ -1,6 +1,6 @@
 # ShadowClaw 메뉴별 기획서
 
-PRD: [../PRD.md](../PRD.md)
+PRD: [../architecture/PRD.md](../architecture/PRD.md)
 
 화면 단위로 디렉토리를 두고, 기능별 명세 파일로 정리한다.
 
@@ -37,7 +37,7 @@ PRD: [../PRD.md](../PRD.md)
 - [02-mcp.md](tools/02-mcp.md) — MCP 서버 등록·연결·도구 목록
 - [03-skills.md](tools/03-skills.md) — 스킬 목록·설정·활성화
 - [04-api.md](tools/04-api.md) — MCP·스킬 관련 API
-- [builtin-tools-and-skills.md](../builtin-tools-and-skills.md) — 내장 도구·내장 Skill 기획 (파일시스템·리눅스·스킬 관리)
+- [builtin-tools-and-skills.md](tools/builtin-tools-and-skills.md) — 내장 도구·내장 Skill 기획 (파일시스템·리눅스·스킬 관리)
 
 ### [settings/](settings/)
 - [01-overview.md](settings/01-overview.md) — 설정 화면 역할
