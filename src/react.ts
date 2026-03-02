@@ -84,13 +84,22 @@ export async function runReact(
   const toolSummaries: Record<string, string> = Object.fromEntries(
     skillsList.map((s) => [s.name, (s.description || s.name).trim().slice(0, 80)])
   );
+  const skillEntries = skillTools.listSkillsWithLocation();
   const skillParamsBlock = skillsList
     .map((s) => `${s.name}: ${JSON.stringify(s.params_schema ?? {})}`)
     .join("\n");
 
   const workspaceDir = resolveWorkspaceDir();
   const contextFiles = await loadContextFiles(workspaceDir);
-  const systemPrompt = buildSystemPrompt({ toolSummaries, forceSkill, contextFiles });
+  const systemPrompt = buildSystemPrompt({
+    toolSummaries,
+    skillEntries,
+    forceSkill,
+    contextFiles,
+    workspaceDir: workspaceDir || undefined,
+    promptMode: "full",
+    hasMemoryTools: false,
+  });
 
   const userContent = buildUserMessageContent({ userMessage, skillParamsBlock });
   const messages: Message[] = [...history, { role: "user", content: userContent }];

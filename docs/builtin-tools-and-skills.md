@@ -24,7 +24,7 @@
 
 | 도구 함수 | 인자 | 설명 | 보안 |
 |-----------|------|------|------|
-| **read_file** | `path: string` | 파일 경로의 텍스트 내용 읽기. UTF-8. | `BASE_PATH` 이하만 허용. 상대 경로는 base 기준. |
+| **read_file** | `path: string` | 파일 경로의 텍스트 내용 읽기. UTF-8. 가상 경로 `skills/<name>.md` → 해당 스킬의 SKILL.md 본문(OpenClaw 스타일). | `BASE_PATH` 이하만 허용. `skills/*.md`는 레지스트리에서 본문 반환. |
 | **write_file** | `path: string`, `content: string` | 파일에 텍스트 쓰기 (덮어쓰기). | 동일하게 base 이하만. |
 | **list_dir** | `path: string` | 디렉터리 항목 목록 (이름, 타입: file/dir). | base 이하만. |
 | **file_exists** | `path: string` | 파일/디렉터리 존재 여부. | base 이하만. |

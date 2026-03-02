@@ -108,6 +108,23 @@ export function getSkillContent(name: string): string {
   return o?.content ?? defaultMarkdown(entry.meta);
 }
 
+/** OpenClaw 스타일: 스킬 요약 + 경로. 시스템에는 요약만 넣고, 본문은 read_file("skills/<name>.md")로 한 건씩. */
+export const SKILL_PATH_PREFIX = "skills/";
+export function skillPath(name: string): string {
+  return `${SKILL_PATH_PREFIX}${name}.md`;
+}
+
+export function listSkillsWithLocation(opts?: {
+  excludeBuiltin?: boolean;
+  includeDisabled?: boolean;
+}): { name: string; description: string; path: string }[] {
+  return listSkills(opts ?? {}).map((s) => ({
+    name: s.name,
+    description: (s.description || s.name).trim().slice(0, 200),
+    path: skillPath(s.name),
+  }));
+}
+
 export function updateSkillContent(name: string, content: string): { ok: boolean } | { error: string } {
   const n = String(name ?? "").trim();
   if (!n) return { error: "name is required" };

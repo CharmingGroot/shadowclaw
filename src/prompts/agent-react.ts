@@ -1,13 +1,25 @@
 /**
  * ReAct 에이전트용 프롬프트 (OpenClaw 스타일: 시스템 vs 메시지 분리).
- * - 시스템: 역할·형식·스킬 요약. 톤/페르소나는 contextFiles(SOUL.md 등)로 Project Context에 주입.
- * - Observations: 도구 결과만 중립적으로 전달.
+ * - 시스템: Identity, Project Context, Tooling, Safety, Skills, Memory, Workspace, Silent, Heartbeat, Runtime 등 동일 섹션.
  */
 import type { EmbeddedContextFile } from "../context-files.js";
 
+/**
+ * 프로토콜 상수 — 아키텍처가 고정되어 있으므로 하드코딩. 변경 시 react.ts 파서 및
+ * Silent/Heartbeat 처리 로직과 계약이 깨지므로 함께 수정해야 함.
+ */
 export const ACTION_CALL = "call";
 export const ACTION_ANSWER = "answer";
 
+/** OpenClaw와 동일: 말할 게 없을 때만 이 토큰만 응답 (중복 전송 방지). */
+export const SILENT_REPLY_TOKEN = "NO_REPLY";
+/** OpenClaw와 동일: heartbeat 폴링 시 "할 일 없음" 응답. */
+export const HEARTBEAT_TOKEN = "HEARTBEAT_OK";
+/** 기본 heartbeat 유도 문구 (HEARTBEAT.md 없을 때). */
+export const DEFAULT_HEARTBEAT_PROMPT =
+  "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+
+/** ReAct JSON 출력 형식 예시 (파서가 action/skill/args|content 키를 기대함). */
 function formatCallExample(actionCall: string): string {
   return `{"thought": "reasoning", "action": "${actionCall}", "skill": "<name>", "args": {...}}`;
 }
@@ -19,17 +31,53 @@ function formatAnswerExample(actionAnswer: string): string {
 /** 도구별 한 줄 요약 (OpenClaw 스타일). 시스템에는 이름+요약만, 상세 스키마는 현재 턴 또는 API로. */
 export type ToolSummaries = Record<string, string>;
 
-/** 시스템 프롬프트: 역할·형식·도구 요약. contextFiles 있으면 OpenClaw처럼 Project Context 섹션 추가. */
+/** OpenClaw 스타일: 스킬 = 요약(이름·설명·경로)만 시스템에 넣고, 본문은 read_file(경로)로 한 건씩. */
+export type SkillEntry = { name: string; description: string; path: string };
+
+/** OpenClaw와 동일한 시스템 프롬프트 섹션: Safety, Skills, Memory, Workspace, Silent, Heartbeat, Runtime. */
+export type PromptMode = "full" | "minimal" | "none";
+
+/** 시스템 프롬프트: Identity, Project Context, Tooling, Safety, Skills(SKILL.md read 규칙), Memory, Workspace, Silent, Heartbeat, Runtime. */
 export function buildSystemPrompt(params: {
   toolSummaries: ToolSummaries;
+  /** OpenClaw 스타일: 스킬 요약 목록. 시스템에는 이름·설명·경로만, 본문은 read_file(path)로. */
+  skillEntries?: SkillEntry[];
   forceSkill?: string;
-  /** 워크스페이스 bootstrap 파일들 (SOUL.md, USER.md 등). OpenClaw contextFiles 동일. */
+  /** 워크스페이스 bootstrap 파일들 (AGENTS.md, SOUL.md, USER.md 등). OpenClaw contextFiles 동일. */
   contextFiles?: EmbeddedContextFile[];
+  /** 워크스페이스 경로 (Workspace 섹션용). */
+  workspaceDir?: string;
+  /** heartbeat 유도 문구. 미지정 시 DEFAULT_HEARTBEAT_PROMPT 사용. */
+  heartbeatPrompt?: string;
+  /** full=모든 섹션, minimal=Silent/Heartbeat 생략, none=Identity 한 줄만. */
+  promptMode?: PromptMode;
+  /** Runtime 한 줄에 넣을 정보 (model 등). */
+  runtimeInfo?: { model?: string; host?: string };
+  /** Memory 도구가 있으면 Memory 규칙 포함. */
+  hasMemoryTools?: boolean;
 }): string {
-  const { toolSummaries, forceSkill, contextFiles = [] } = params;
+  const {
+    toolSummaries,
+    skillEntries = [],
+    forceSkill,
+    contextFiles = [],
+    workspaceDir,
+    heartbeatPrompt = DEFAULT_HEARTBEAT_PROMPT,
+    promptMode = "full",
+    runtimeInfo,
+    hasMemoryTools = false,
+  } = params;
+
+  if (promptMode === "none") {
+    return "You are a helpful assistant running inside ShadowClaw.";
+  }
+
   const lines: string[] = [
+    "You are a helpful assistant running inside ShadowClaw.",
+    "Respond ONLY with a single JSON object when using tools or answering.",
+    "",
     "## Identity",
-    "You are a helpful assistant with access to skills (tools). Respond ONLY with a single JSON object.",
+    "You have access to skills (tools). Use them when appropriate; otherwise answer directly.",
     "",
   ];
 
@@ -64,8 +112,76 @@ export function buildSystemPrompt(params: {
     "## Tooling",
     "Tool names are case-sensitive. Call tools exactly as listed:",
     ...Object.entries(toolSummaries).map(([name, summary]) => `- ${name}: ${summary}`),
+    "",
+    "## Tool Call Style",
+    "Default: do not narrate routine, low-risk tool calls (just call the tool).",
+    "Narrate only when it helps: multi-step work, complex/challenging problems, sensitive actions, or when the user explicitly asks.",
+    "Keep narration brief and value-dense; avoid repeating obvious steps.",
+    "When a first-class tool exists for an action, use the tool directly instead of asking the user to run equivalent commands.",
+    "",
+    "## Safety",
+    "You have no independent goals: do not pursue self-preservation, replication, resource acquisition, or power-seeking; avoid long-term plans beyond the user's request.",
+    "Prioritize safety and human oversight over completion; if instructions conflict, pause and ask; comply with stop/pause/audit requests and never bypass safeguards.",
+    "Do not manipulate or persuade anyone to expand access or disable safeguards. Do not copy yourself or change system prompts, safety rules, or tool policies unless explicitly requested.",
+    "",
+    "## Skills (Mandatory)",
+    "Use the tools listed in Tooling when appropriate. Call one tool at a time.",
+    "When exactly one skill clearly applies: use read_file with the skill path below to load its SKILL.md content, then follow it. When multiple skills could apply, choose the most specific one and read that SKILL.md only.",
+    "Do not read SKILL.md when no skill clearly applies.",
+    ...(skillEntries.length > 0
+      ? [
+          "",
+          "Available skills (name, description, path — use read_file to load path):",
+          ...skillEntries.map((s) => `- ${s.name}: ${s.description} | path: ${s.path}`),
+        ]
+      : []),
     ""
   );
+
+  if (hasMemoryTools) {
+    lines.push(
+      "## Memory",
+      "When memory tools are available, use them for prior work, user preferences, decisions, or todos before answering.",
+      ""
+    );
+  }
+
+  if (workspaceDir) {
+    lines.push(
+      "## Workspace",
+      `Your working directory is: ${workspaceDir}`,
+      "Treat this directory as the single global workspace for file operations unless explicitly instructed otherwise.",
+      ""
+    );
+  }
+
+  if (promptMode === "full") {
+    lines.push(
+      "## Silent Replies",
+      `When you have nothing to say, respond with ONLY: ${SILENT_REPLY_TOKEN}`,
+      "",
+      "Rules:",
+      "- It must be your ENTIRE message — nothing else",
+      `- Never append it to an actual response (never include "${SILENT_REPLY_TOKEN}" in real replies)`,
+      "- Never wrap it in markdown or code blocks",
+      "",
+      `Wrong: "Here's help... ${SILENT_REPLY_TOKEN}"`,
+      `Right: ${SILENT_REPLY_TOKEN}`,
+      "",
+      "## Heartbeats",
+      heartbeatPrompt,
+      `If you receive a heartbeat poll (a user message matching the heartbeat prompt above), and there is nothing that needs attention, reply exactly: ${HEARTBEAT_TOKEN}`,
+      `ShadowClaw treats a leading/trailing "${HEARTBEAT_TOKEN}" as a heartbeat ack (and may discard it).`,
+      "If something needs attention, do NOT include HEARTBEAT_OK; reply with the alert text instead.",
+      ""
+    );
+  }
+
+  const runtimeParts: string[] = ["ShadowClaw"];
+  if (runtimeInfo?.model) runtimeParts.push(`model=${runtimeInfo.model}`);
+  if (runtimeInfo?.host) runtimeParts.push(`host=${runtimeInfo.host}`);
+  lines.push("## Runtime", `Runtime: ${runtimeParts.join(" | ")}`, "");
+
   if (forceSkill) {
     lines.push(`User requested to use skill "${forceSkill}". Prefer calling it with appropriate args.`, "");
   }

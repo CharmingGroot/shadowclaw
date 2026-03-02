@@ -1,7 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
+import { getSkillContent } from "./skill-tools.js";
 
 const BASE_PATH = path.resolve(process.env.SHADOWCLAW_BASE_PATH ?? process.cwd());
+
+/** OpenClaw 스타일: SKILL.md 본문을 가상 경로로 노출. read_file({ path: "skills/<name>.md" }) → 해당 스킬 마크다운. */
+const SKILLS_VIRTUAL_PREFIX = "skills/";
 
 function resolveAndValidate(relativePath: string): string {
   const resolved = path.resolve(BASE_PATH, relativePath);
@@ -14,6 +18,14 @@ function resolveAndValidate(relativePath: string): string {
 }
 
 export async function readFile(args: { path: string }): Promise<{ content: string } | { error: string }> {
+  const rawPath = (args.path ?? "").trim().replace(/\\/g, "/");
+  if (rawPath.startsWith(SKILLS_VIRTUAL_PREFIX) && rawPath.endsWith(".md")) {
+    const name = rawPath.slice(SKILLS_VIRTUAL_PREFIX.length, -3).replace(/\/$/, "");
+    if (!name) return { error: "Invalid skill path" };
+    const content = getSkillContent(name);
+    if (!content) return { error: `Skill not found: ${name}` };
+    return { content };
+  }
   try {
     const filePath = resolveAndValidate(args.path);
     const content = await fs.readFile(filePath, "utf-8");

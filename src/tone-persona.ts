@@ -1,6 +1,6 @@
 /**
  * 톤/페르소나용 마크다운 로드 (SOUL.md 등).
- * buildSystemPrompt의 tonePersonaMd로 주입해 에이전트 어투·스타일을 관리한다.
+ * @deprecated 메인 에이전트는 context-files(loadContextFiles) + Project Context 사용. 단일 파일 로드가 필요할 때만 사용.
  */
 import fs from "node:fs/promises";
 import path from "node:path";

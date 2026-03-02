@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import "../skills/index.js"; // populate registry so skills/<name>.md has content
 import * as filesystem from "./filesystem.js";
 
 let tmpDir: string;
@@ -46,5 +47,17 @@ describe("filesystem tools", () => {
   it("rejects path outside base", async () => {
     const read = await filesystem.readFile({ path: "../../etc/passwd" });
     expect("error" in read).toBe(true);
+  });
+
+  it("read_file with virtual path skills/<name>.md returns skill SKILL.md content when skill exists", async () => {
+    const r = await filesystem.readFile({ path: "skills/read_file.md" });
+    expect("error" in r).toBe(false);
+    expect((r as { content: string }).content).toContain("read_file");
+  });
+
+  it("read_file with virtual path skills/<name>.md returns error when skill not found", async () => {
+    const r = await filesystem.readFile({ path: "skills/nonexistent_skill_xyz.md" });
+    expect("error" in r).toBe(true);
+    expect((r as { error: string }).error).toContain("not found");
   });
 });

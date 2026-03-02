@@ -9,14 +9,62 @@ import {
 } from "./agent-react.js";
 
 describe("buildSystemPrompt", () => {
-  it("includes Identity, Format, Tooling with toolNames + one-line summaries (OpenClaw style)", () => {
+  it("includes Identity, Format, Tooling, Safety, Skills (read_file rule), Silent, Heartbeat, Runtime (OpenClaw-style sections)", () => {
     const s = buildSystemPrompt({ toolSummaries: { echo: "echoes input", read_file: "Read file contents" } });
+    expect(s).toContain("ShadowClaw");
     expect(s).toContain("## Identity");
     expect(s).toContain("## Output format");
     expect(s).toContain("## Tooling");
-    expect(s).toContain("Tool names are case-sensitive");
+    expect(s).toContain("## Tool Call Style");
+    expect(s).toContain("## Safety");
+    expect(s).toContain("## Skills (Mandatory)");
+    expect(s).toContain("read_file");
+    expect(s).toContain("SKILL.md");
+    expect(s).toContain("## Silent Replies");
+    expect(s).toContain("NO_REPLY");
+    expect(s).toContain("## Heartbeats");
+    expect(s).toContain("HEARTBEAT_OK");
+    expect(s).toContain("## Runtime");
     expect(s).toContain("- echo: echoes input");
     expect(s).toContain("- read_file: Read file contents");
+  });
+
+  it("includes skill entries with path when skillEntries provided (OpenClaw-style)", () => {
+    const s = buildSystemPrompt({
+      toolSummaries: { read_file: "Read file" },
+      skillEntries: [
+        { name: "echo", description: "Echoes input", path: "skills/echo.md" },
+        { name: "read_file", description: "Read file contents", path: "skills/read_file.md" },
+      ],
+    });
+    expect(s).toContain("use read_file with the skill path");
+    expect(s).toContain("path: skills/echo.md");
+    expect(s).toContain("path: skills/read_file.md");
+    expect(s).toContain("Echoes input");
+  });
+
+  it("promptMode none returns single identity line", () => {
+    const s = buildSystemPrompt({ toolSummaries: { x: "y" }, promptMode: "none" });
+    expect(s).toBe("You are a helpful assistant running inside ShadowClaw.");
+  });
+
+  it("promptMode minimal omits Silent Replies and Heartbeats", () => {
+    const s = buildSystemPrompt({ toolSummaries: {}, promptMode: "minimal" });
+    expect(s).toContain("## Safety");
+    expect(s).not.toContain("## Silent Replies");
+    expect(s).not.toContain("## Heartbeats");
+  });
+
+  it("includes Workspace when workspaceDir provided", () => {
+    const s = buildSystemPrompt({ toolSummaries: {}, workspaceDir: "/home/user/proj" });
+    expect(s).toContain("## Workspace");
+    expect(s).toContain("/home/user/proj");
+  });
+
+  it("includes Memory when hasMemoryTools true", () => {
+    const s = buildSystemPrompt({ toolSummaries: {}, hasMemoryTools: true });
+    expect(s).toContain("## Memory");
+    expect(s).toContain("memory tools");
   });
 
   it("includes Project Context and SOUL embody when contextFiles with SOUL.md provided", () => {
