@@ -46,11 +46,13 @@
 |-----------|------|------|
 | **list_skills** | — | 등록된 스킬 메타 목록 (레지스트리 + 오버라이드 반영). |
 | **get_skill** | `name: string` | 스킬 1개 메타 조회. 없으면 null. |
-| **update_skill_meta** | `name: string`, `description?: string`, `require_hitl?: boolean`, `enabled?: boolean` | 스킬 메타 오버라이드 저장. |
+| **update_skill_meta** | `name`, `description?`, `require_hitl?`, `enabled?`, `content?`(md 본문) | 스킬 메타·본문 오버라이드 저장. |
 | **create_custom_skill** | `name: string`, `description: string`, `params_schema: Record<string, string>` | 사용자 정의 스킬 메타만 등록. 실행은 추후 MCP 위임 또는 스텁. |
+| **delete_custom_skill** | `name: string` | 커스텀 스킬 삭제. 내장 스킬은 삭제 불가. |
 
 - `list_skills` / `get_skill`: 레지스트리 + 오버라이드 저장소 병합 결과 반환.
-- `update_skill_meta`: 오버라이드 저장소에 쓰기.
+- `update_skill_meta`: 오버라이드 저장소에 쓰기. `content`로 마크다운 본문 수정 가능.
+- `delete_custom_skill`: 커스텀 스킬만 레지스트리에서 제거. 내장 스킬 이름이면 거부.
 - `create_custom_skill`: 커스텀 스킬용 저장소에 메타만 추가. 실행 시점에는 “미구현” 또는 MCP 도구명 매핑으로 확장 가능.
 
 ---
@@ -80,8 +82,9 @@
 |------------|------|------|-----------|
 | **list_skills_meta** | 가용 스킬 목록. | — | tools.skillTools.listSkills |
 | **get_skill** | 스킬 1개 메타 조회. | `name: string` | tools.skillTools.getSkill |
-| **update_skill_meta** | 스킬 설명·HITL·활성 오버라이드 저장. | `name`, `description?`, `require_hitl?`, `enabled?` | tools.skillTools.updateSkillMeta |
+| **update_skill_meta** | 스킬 설명·HITL·활성·content(md) 오버라이드 저장. | `name`, `description?`, `require_hitl?`, `enabled?`, `content?` | tools.skillTools.updateSkillMeta |
 | **create_custom_skill** | 사용자 정의 스킬 메타 등록. | `name`, `description`, `params_schema` | tools.skillTools.createCustomSkill |
+| **delete_custom_skill** | 커스텀 스킬 삭제(내장 스킬 불가). | `name` | tools.skillTools.deleteCustomSkill |
 
 ---
 
@@ -93,7 +96,7 @@ src/
     index.ts      # re-export
     filesystem.ts # read_file, write_file, list_dir, file_exists
     linux.ts      # run_command
-    skill-tools.ts# list_skills, get_skill, update_skill_meta, create_custom_skill
+    skill-tools.ts# list_skills, get_skill, update_skill_meta, create_custom_skill, delete_custom_skill
   skills/
     index.ts      # 내장 도구 래핑 Skill 등록
     registry.ts   # (기존)
